@@ -21,6 +21,15 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [printer, setPrinter] = useState("");
   const [printers, setPrinters] = useState<PrinterOption[]>([]);
+  const [updateInfo, setUpdateInfo] = useState<{
+    phase: string;
+    current_version?: string | null;
+    latest_version?: string | null;
+    available?: boolean;
+    download_percent?: number;
+    error?: string | null;
+  } | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
 
   useEffect(() => {
     if (!settings) return;
@@ -81,6 +90,12 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
           /* Electron optional */
         }
       }
+      try {
+        const status = await api.updateStatus();
+        if (!cancelled) setUpdateInfo(status);
+      } catch {
+        /* updates optional */
+      }
       if (cancelled) return;
       setPrinters(options);
       setPrinter((current) => current || preferred);
@@ -89,6 +104,42 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
       cancelled = true;
     };
   }, [open]);
+
+  async function checkForUpdates() {
+    setUpdateBusy(true);
+    setError(null);
+    try {
+      const status = await api.checkUpdate();
+      setUpdateInfo(status);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update-Prüfung fehlgeschlagen");
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
+  async function downloadAndInstallUpdate() {
+    setUpdateBusy(true);
+    setError(null);
+    try {
+      let status = await api.downloadUpdate();
+      setUpdateInfo(status);
+      status = await api.installUpdate();
+      setUpdateInfo(status);
+      if (status.error) {
+        setError(String(status.error));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update fehlgeschlagen");
+    } finally {
+      setUpdateBusy(false);
+      try {
+        setUpdateInfo(await api.updateStatus());
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -219,6 +270,39 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
             </button>
           </div>
           {saved && <p className="hint">Gespeichert.</p>}
+
+          <div className="settings-divider" />
+          <h2>App-Updates</h2>
+          <p className="hint">
+            Aktuell: {updateInfo?.current_version || "–"}
+            {updateInfo?.latest_version
+              ? ` · Neueste: ${updateInfo.latest_version}`
+              : ""}
+          </p>
+          {updateInfo?.available && (
+            <p className="hint">Update verfügbar – Download & Installation benötigt Bestätigung.</p>
+          )}
+          {typeof updateInfo?.download_percent === "number" &&
+            updateInfo.phase === "downloading" && (
+              <p className="hint">Download: {updateInfo.download_percent} %</p>
+            )}
+          <div className="actions" style={{ marginTop: 10 }}>
+            <button
+              className="btn btn-ghost"
+              disabled={updateBusy}
+              onClick={() => void checkForUpdates()}
+            >
+              Auf Updates prüfen
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={updateBusy || !updateInfo?.available}
+              onClick={() => void downloadAndInstallUpdate()}
+            >
+              Download & installieren
+            </button>
+          </div>
+          {updateInfo?.error && <p className="error">{updateInfo.error}</p>}
           {error && <p className="error">{error}</p>}
         </div>
       )}

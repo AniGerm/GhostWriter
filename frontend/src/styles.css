@@ -94,6 +94,12 @@ button {
   letter-spacing: -0.02em;
 }
 
+.settings-divider {
+  height: 1px;
+  margin: 16px 0 12px;
+  background: var(--line);
+}
+
 .brand {
   display: flex;
   align-items: center;

@@ -153,4 +153,34 @@ export const api = {
     const query = base_url ? `?base_url=${encodeURIComponent(base_url)}` : "";
     return req<{ models: string[]; base_url: string }>(`/api/ollama/models${query}`);
   },
+  updateStatus: () =>
+    req<{
+      phase: string;
+      current_version?: string | null;
+      latest_version?: string | null;
+      available?: boolean;
+      download_percent?: number;
+      error?: string | null;
+      deb_name?: string | null;
+    }>("/api/updates"),
+  checkUpdate: () =>
+    req<{
+      phase: string;
+      current_version?: string | null;
+      latest_version?: string | null;
+      available?: boolean;
+      error?: string | null;
+    }>("/api/updates/check", { method: "POST" }),
+  downloadUpdate: () =>
+    req<{
+      phase: string;
+      download_percent?: number;
+      error?: string | null;
+      available?: boolean;
+    }>("/api/updates/download", { method: "POST" }),
+  installUpdate: () =>
+    req<{
+      phase: string;
+      error?: string | null;
+    }>("/api/updates/install", { method: "POST" }),
 };

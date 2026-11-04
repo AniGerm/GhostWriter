@@ -517,10 +517,25 @@ def update_install() -> dict[str, Any]:
     return updates.install_update()
 
 
+FRONTEND_DIST_CANDIDATES: tuple[Path, ...] = (
+    Path("/opt/ghostwriter/frontend/dist"),
+    Path(__file__).resolve().parents[1] / "frontend" / "dist",
+    Path(__file__).resolve().parents[2] / "frontend" / "dist",
+)
+
+
+def resolve_frontend_dist() -> Path | None:
+    """Findet das gebaute React-Frontend (Repo oder Deb-Installation)."""
+    for candidate in FRONTEND_DIST_CANDIDATES:
+        if candidate.is_dir() and (candidate / "index.html").is_file():
+            return candidate
+    return None
+
+
 def _mount_frontend() -> None:
-    dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
-    if dist.is_dir():
-        app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+    dist = resolve_frontend_dist()
+    if dist is not None:
+        app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
 
 
 _mount_frontend()
