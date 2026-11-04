@@ -6,6 +6,7 @@ import contextlib
 import shutil
 import threading
 import uuid
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -99,7 +100,7 @@ def _project_dict(project_id: str) -> dict[str, Any]:
         "draft_html": project.draft_html,
         "created_at": project.created_at,
         "updated_at": project.updated_at,
-        "questions": [q.__dict__ for q in STORE.get_questions(project_id)],
+        "questions": [asdict(q) for q in STORE.get_questions(project_id)],
         "documents": [
             {
                 "id": d.id,

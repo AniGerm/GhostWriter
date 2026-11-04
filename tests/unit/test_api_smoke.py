@@ -33,6 +33,29 @@ def test_create_and_list_projects(api: TestClient) -> None:
     assert any(p["id"] == created["id"] for p in listed)
 
 
+def test_get_project_with_questions_serializes(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Question nutzt slots - __dict__ darf nicht verwendet werden."""
+    import ghostwriter.server as server
+    from ghostwriter.store import Question
+
+    created = api.post(
+        "/api/projects", json={"patient_label": "Heinz Müller2", "reference": ""}
+    ).json()
+    pid = created["id"]
+    server.STORE.set_questions(
+        pid,
+        [Question(number=1, text="Wie ist die Belastbarkeit?", keyword="Belastbarkeit")],
+    )
+    response = api.get(f"/api/projects/{pid}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["questions"] == [
+        {"number": 1, "text": "Wie ist die Belastbarkeit?", "keyword": "Belastbarkeit"}
+    ]
+
+
 def test_public_job_error_prefers_ollama_message() -> None:
     assert "nicht gefunden" in _public_job_error(OllamaError("Modell x nicht gefunden"))
     req = httpx.Request("POST", "http://127.0.0.1:11434/api/chat")
