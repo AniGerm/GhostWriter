@@ -68,6 +68,10 @@ class DraftBody(BaseModel):
     html: str
 
 
+class RegenerateBody(BaseModel):
+    revision_notes: str = ""
+
+
 class CostBody(BaseModel):
     page_count: int = Field(ge=0)
     postage_key: str | None = None
@@ -321,6 +325,21 @@ def start_analyze(project_id: str) -> dict[str, str]:
     return {"job_id": job_id}
 
 
+@app.post("/api/projects/{project_id}/regenerate")
+def start_regenerate(project_id: str, body: RegenerateBody) -> dict[str, str]:
+    """Antwortschreiben mit optionalen Änderungswünschen neu erzeugen."""
+    if STORE.get_project(project_id) is None:
+        raise HTTPException(404, "Projekt nicht gefunden")
+    job_id = uuid.uuid4().hex
+    _set_job(job_id, phase="composing", percent=10, project_id=project_id)
+    notes = body.revision_notes or ""
+    thread = threading.Thread(
+        target=_run_regenerate, args=(job_id, project_id, notes), daemon=True
+    )
+    thread.start()
+    return {"job_id": job_id}
+
+
 def _run_analyze(job_id: str, project_id: str) -> None:
     try:
         docs = STORE.list_documents(project_id)
@@ -389,6 +408,55 @@ def _run_analyze(job_id: str, project_id: str) -> None:
             notes=project.notes,
             letterhead_html=settings.letterhead_html,
             signature_html=settings.signature_html,
+        )
+        STORE.set_draft_html(project_id, html)
+        _set_job(job_id, phase="done", percent=100, message="Fertig")
+    except Exception as exc:
+        _set_job(job_id, phase="error", error=_public_job_error(exc), percent=100)
+
+
+def _run_regenerate(job_id: str, project_id: str, revision_notes: str) -> None:
+    try:
+        project = STORE.get_project(project_id)
+        if project is None:
+            _set_job(job_id, phase="error", error="Projekt nicht gefunden", percent=100)
+            return
+        questions = STORE.get_questions(project_id)
+        if not questions:
+            _set_job(job_id, phase="error", error="Keine Fragen vorhanden", percent=100)
+            return
+        settings = load_settings(SETTINGS_PATH)
+        client = OllamaClient(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            num_ctx=settings.ollama_num_ctx,
+        )
+        _set_job(job_id, phase="composing", percent=20, message="Ollama-Modell prüfen …")
+        client.ensure_model_available()
+        pipe = ReportPipeline(client)
+        docs = STORE.list_documents(project_id)
+        findings = [
+            d for d in docs if d.role is DocumentRole.BEFUND and d.extracted_text.strip()
+        ]
+        summaries: list[str] = []
+        for index, doc in enumerate(findings):
+            _set_job(
+                job_id,
+                phase="findings",
+                percent=25 + int(40 * index / max(1, len(findings))),
+                message=f"Befund verdichten: {doc.display_name}",
+            )
+            summary = pipe.summarize_finding(doc.extracted_text, display_name=doc.display_name)
+            summaries.append(summary.summary)
+        _set_job(job_id, phase="composing", percent=80, message="Schreiben überarbeiten …")
+        html = pipe.compose_report(
+            questions=questions,
+            finding_summaries=summaries,
+            notes=project.notes,
+            letterhead_html=settings.letterhead_html,
+            signature_html=settings.signature_html,
+            current_html=project.draft_html,
+            revision_notes=revision_notes,
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")

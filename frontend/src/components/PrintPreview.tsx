@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Project } from "../api";
+import { measureHtmlPages } from "../letterPagination";
 
 export type PreviewPage = {
   id: string;
@@ -23,12 +24,16 @@ export function estimateLetterPages(html: string): number {
     .replace(/\s+/g, " ")
     .trim();
   if (!text) return 1;
-  return Math.max(1, Math.ceil(text.length / 2200));
+  return Math.max(1, Math.ceil(text.length / 1800));
 }
 
-export function buildPreviewPages(project: Project, draftHtml: string): PreviewPage[] {
+export function buildPreviewPages(
+  project: Project,
+  draftHtml: string,
+  letterPageCount?: number,
+): PreviewPage[] {
   const pages: PreviewPage[] = [];
-  const letterCount = estimateLetterPages(draftHtml);
+  const letterCount = Math.max(1, letterPageCount ?? estimateLetterPages(draftHtml));
   for (let i = 1; i <= letterCount; i += 1) {
     pages.push({
       id: `letter:${i}`,
@@ -78,13 +83,49 @@ function selectionClass(on: boolean): string {
 }
 
 export function PrintPreview({ project, draftHtml, selected, onChangeSelected }: Props) {
+  const [letterBodies, setLetterBodies] = useState<string[]>(() => [
+    draftHtml.trim() || "<p><em>Kein Anschreiben vorhanden.</em></p>",
+  ]);
+
+  useEffect(() => {
+    const raw = draftHtml.trim() || "<p><em>Kein Anschreiben vorhanden.</em></p>";
+    const frames = window.requestAnimationFrame(() => {
+      try {
+        setLetterBodies(measureHtmlPages(raw));
+      } catch {
+        setLetterBodies([raw]);
+      }
+    });
+    return () => window.cancelAnimationFrame(frames);
+  }, [draftHtml]);
+
   const pages = useMemo(
-    () => buildPreviewPages(project, draftHtml),
-    [project, draftHtml],
+    () => buildPreviewPages(project, draftHtml, letterBodies.length),
+    [project, draftHtml, letterBodies.length],
   );
   const letterPages = pages.filter((p) => p.group === "anschreiben");
   const befundPages = pages.filter((p) => p.group === "befund");
   const letterCount = letterPages.length;
+
+  useEffect(() => {
+    const next = { ...selected };
+    let changed = false;
+    for (const page of letterPages) {
+      if (!(page.id in next)) {
+        next[page.id] = true;
+        changed = true;
+      }
+    }
+    for (const key of Object.keys(next)) {
+      if (key.startsWith("letter:") && !letterPages.some((p) => p.id === key)) {
+        delete next[key];
+        changed = true;
+      }
+    }
+    if (changed) onChangeSelected(next);
+    // Nur bei Seitenanzahl-Wechsel nachziehen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [letterCount]);
 
   function toggle(id: string) {
     onChangeSelected({ ...selected, [id]: !selected[id] });
@@ -179,8 +220,9 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
       </aside>
 
       <section className="preview-canvas" aria-label="Druckvorschau">
-        {letterPages.map((page) => {
+        {letterPages.map((page, index) => {
           const on = Boolean(selected[page.id]);
+          const body = letterBodies[index] || "";
           return (
             <button
               key={page.id}
@@ -193,23 +235,12 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
               <span className="a4-badge" aria-hidden>
                 {on ? "✓" : "×"}
               </span>
-              <div className="a4-page-label">Anschreiben · Seite {page.pageNumber}/{letterCount}</div>
+              <div className="a4-page-label">
+                Anschreiben · Seite {page.pageNumber}/{letterCount}
+              </div>
               <div
                 className="a4-page-body preview-letter"
-                style={
-                  letterCount > 1
-                    ? {
-                        maxHeight: "257mm",
-                        overflow: "hidden",
-                      }
-                    : undefined
-                }
-                dangerouslySetInnerHTML={{
-                  __html:
-                    page.pageNumber === 1
-                      ? draftHtml.trim() || "<p><em>Kein Anschreiben vorhanden.</em></p>"
-                      : `<p class="hint">Fortsetzung Seite ${page.pageNumber} (geschätzt für Kosten/Druck).</p>`,
-                }}
+                dangerouslySetInnerHTML={{ __html: body }}
               />
             </button>
           );
@@ -249,7 +280,7 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
                   />
                 ) : null}
                 <p className="hint" hidden>
-                  Seitenvorschau nicht verfügbar – Datei wird beim Drucken geöffnet.
+                  Seitenvorschau nicht verfügbar – Datei wird beim Drucken als PDF geöffnet.
                 </p>
               </div>
             </button>

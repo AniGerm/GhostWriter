@@ -94,3 +94,27 @@ def test_compose_report_html() -> None:
     payload = fake.calls[0]["user"]
     assert "Diabetes" in payload
     assert "Metformin" in payload
+
+
+def test_compose_report_includes_revision_context() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>Überarbeitet</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    html = pipe.compose_report(
+        questions=[Question(1, "Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes Typ 2"],
+        notes="",
+        current_html="<p>Alter Entwurf Punkt 6</p>",
+        revision_notes="Stil kürzer; neue Grußformel übernehmen",
+        signature_html="<p>Mit freundlichen Grüßen</p><p>Dr. Test</p>",
+    )
+    assert "Überarbeitet" in html
+    payload = fake.calls[0]["user"]
+    assert "Alter Entwurf Punkt 6" in payload
+    assert "Stil kürzer" in payload
+    assert "Dr. Test" in payload
+    assert "Änderungswünsche" in payload or "Revision" in payload

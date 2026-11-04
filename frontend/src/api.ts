@@ -116,6 +116,12 @@ export const api = {
   },
   analyze: (id: string) =>
     req<{ job_id: string }>(`/api/projects/${id}/analyze`, { method: "POST" }),
+  regenerate: (id: string, revision_notes = "") =>
+    req<{ job_id: string }>(`/api/projects/${id}/regenerate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revision_notes }),
+    }),
   getJob: (jobId: string) => req<Job>(`/api/jobs/${jobId}`),
   costs: (
     id: string,

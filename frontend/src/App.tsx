@@ -54,6 +54,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [pageSelection, setPageSelection] = useState<Record<string, boolean>>({});
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [revisionNotes, setRevisionNotes] = useState("");
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -213,6 +215,23 @@ export default function App() {
       setProject(saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function regenerateDraft() {
+    if (!project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setDraft(project.id, draft);
+      const { job_id } = await api.regenerate(project.id, revisionNotes.trim());
+      setJob({ id: job_id, phase: "composing", percent: 5, message: "Schreiben neu erzeugen …" });
+      setRegenOpen(false);
+      setStep("Analyse");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Neu erzeugen fehlgeschlagen");
     } finally {
       setBusy(false);
     }
@@ -575,12 +594,52 @@ export default function App() {
                 </ul>
               </details>
             )}
+            {regenOpen && (
+              <div className="regen-panel" role="region" aria-label="Schreiben neu erzeugen">
+                <label htmlFor="revision-notes">Anmerkungen für die KI</label>
+                <textarea
+                  id="revision-notes"
+                  value={revisionNotes}
+                  onChange={(e) => setRevisionNotes(e.target.value)}
+                  placeholder={
+                    "z. B. fehlende Punkte ergänzen, Stil kürzer/sachlicher, " +
+                    "Grußformel/Arztzeile aus den Einstellungen übernehmen …"
+                  }
+                />
+                <div className="actions" style={{ marginTop: 0 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={busy}
+                    onClick={() => setRegenOpen(false)}
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={busy}
+                    onClick={() => void regenerateDraft()}
+                  >
+                    Mit Anmerkungen neu erzeugen
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="actions">
               <button className="btn btn-ghost" onClick={() => setStep("Analyse")}>
                 Zurück
               </button>
               <button className="btn btn-ghost" disabled={busy} onClick={() => void saveDraft()}>
                 Speichern
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() => setRegenOpen((open) => !open)}
+              >
+                Neu erzeugen
               </button>
               <button
                 className="btn btn-primary"

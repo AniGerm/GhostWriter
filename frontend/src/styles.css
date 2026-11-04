@@ -268,6 +268,27 @@ button {
   color: var(--muted);
 }
 
+.regen-panel {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 10px;
+}
+
+.regen-panel textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
 .questions-fold {
   margin-top: 18px;
   border: 1px solid var(--line);
@@ -468,10 +489,20 @@ button {
 .editor-canvas {
   width: min(210mm, 100%);
   min-height: 297mm;
+  height: auto;
   margin: 0 auto;
   border-radius: 2px;
   border: 1px solid rgba(15, 20, 25, 0.12);
-  background: #fffefb;
+  background-color: #fffefb;
+  /* Sichtbare A4-Trennung alle 297mm, Inhalt läuft durch */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(297mm - 1.5px),
+    rgba(120, 113, 108, 0.55) calc(297mm - 1.5px),
+    rgba(120, 113, 108, 0.55) 297mm
+  );
+  background-size: 100% 297mm;
   padding: 20mm 18mm;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
@@ -724,6 +755,7 @@ button {
   position: relative;
   width: min(210mm, 100%);
   min-height: 297mm;
+  height: auto;
   margin: 0;
   padding: 0;
   text-align: left;
@@ -732,7 +764,7 @@ button {
   background: #fffefb;
   border: 2px solid rgba(15, 20, 25, 0.12);
   box-shadow: 0 16px 36px rgba(15, 20, 25, 0.16);
-  overflow: hidden;
+  overflow: visible;
   color: inherit;
   font: inherit;
 }

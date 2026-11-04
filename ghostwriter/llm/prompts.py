@@ -26,4 +26,7 @@ Regeln:
 - Ausgabe ausschließlich als JSON: {"html":"<h1>...</h1>..."} mit semantischem HTML
   (h1/h2/p), Abschnitte je Frage, Anrede/Bezug und Grußformel.
 - Sprache: Deutsch, sachlich, ärztlich.
+- Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten
+  (Inhalt ergänzen/kürzen/Stil anpassen), Signatur-HTML verbindlich übernehmen,
+  keine Inhalte erfinden, die nicht in Befunden/Hinweisen stehen.
 """

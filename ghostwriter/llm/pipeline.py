@@ -70,16 +70,23 @@ class ReportPipeline:
         notes: str,
         letterhead_html: str = "",
         signature_html: str = "",
+        current_html: str = "",
+        revision_notes: str = "",
     ) -> str:
         q_block = "\n".join(f"{q.number}. [{q.keyword}] {q.text}" for q in questions)
         f_block = "\n---\n".join(finding_summaries) if finding_summaries else "(keine)"
-        user = (
-            f"Briefkopf-HTML (optional übernehmen):\n{letterhead_html}\n\n"
-            f"Fragen:\n{q_block}\n\n"
-            f"Befundzusammenfassungen:\n{f_block}\n\n"
-            f"Hinweise des Arztes:\n{notes or '(keine)'}\n\n"
-            f"Signatur-HTML:\n{signature_html}"
-        )
+        parts = [
+            f"Briefkopf-HTML (optional übernehmen):\n{letterhead_html}",
+            f"Fragen:\n{q_block}",
+            f"Befundzusammenfassungen:\n{f_block}",
+            f"Hinweise des Arztes:\n{notes or '(keine)'}",
+        ]
+        if current_html.strip():
+            parts.append(f"Aktueller Entwurf (HTML):\n{current_html.strip()}")
+        if revision_notes.strip():
+            parts.append(f"Änderungswünsche / Revision:\n{revision_notes.strip()}")
+        parts.append(f"Signatur-HTML:\n{signature_html}")
+        user = "\n\n".join(parts)
         data = self._client.chat_json(system=prompts.COMPOSE_REPORT_SYSTEM, user=user)
         html = str(data.get("html", "")).strip()
         if letterhead_html and letterhead_html not in html:
