@@ -33,7 +33,20 @@ export default function App() {
   const stepIndex = STEPS.indexOf(step);
 
   useEffect(() => {
-    api.health().then((h) => setVersion(h.version)).catch(() => undefined);
+    api
+      .health()
+      .then((h) => {
+        setVersion(h.version);
+        const ollama = (h as { ollama?: { model_available?: boolean; model?: string; error?: string } })
+          .ollama;
+        if (ollama && ollama.model_available === false) {
+          setError(
+            ollama.error ||
+              `Ollama-Modell „${ollama.model ?? "?"}“ fehlt. Bitte Modell installieren oder in den Einstellungen wechseln.`,
+          );
+        }
+      })
+      .catch(() => undefined);
     api.listProjects().then(setProjects).catch(() => undefined);
   }, []);
 

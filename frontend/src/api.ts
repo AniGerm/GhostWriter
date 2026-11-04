@@ -51,7 +51,18 @@ export type ProjectSummary = {
 };
 
 export const api = {
-  health: () => req<{ ok: boolean; version: string }>("/api/health"),
+  health: () =>
+    req<{
+      ok: boolean;
+      version: string;
+      ollama?: {
+        reachable: boolean;
+        model: string;
+        model_available: boolean;
+        models?: string[];
+        error?: string;
+      };
+    }>("/api/health"),
   listProjects: () => req<ProjectSummary[]>("/api/projects"),
   createProject: (patient_label: string, reference = "") =>
     req<Project>("/api/projects", {

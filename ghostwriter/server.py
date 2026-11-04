@@ -9,6 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +18,7 @@ from pydantic import BaseModel, Field
 from ghostwriter import updates
 from ghostwriter.costs import calculate_costs
 from ghostwriter.extract import ExtractionResult, extract_document_text
-from ghostwriter.llm.client import OllamaClient
+from ghostwriter.llm.client import OllamaClient, OllamaError
 from ghostwriter.llm.pipeline import ReportPipeline
 from ghostwriter.paths import default_data_root
 from ghostwriter.settings import load_settings, save_settings
@@ -126,9 +127,37 @@ def _cost_dict(project_id: str) -> dict[str, float | int] | None:
     }
 
 
+def _ollama_status() -> dict[str, Any]:
+    settings = load_settings(SETTINGS_PATH)
+    try:
+        client = OllamaClient(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            num_ctx=settings.ollama_num_ctx,
+        )
+        models = client.list_models()
+        available = settings.ollama_model in models or any(
+            name.startswith(f"{settings.ollama_model}:") for name in models
+        )
+        return {
+            "reachable": True,
+            "model": settings.ollama_model,
+            "model_available": available,
+            "models": models[:20],
+        }
+    except OllamaError as exc:
+        return {
+            "reachable": False,
+            "model": settings.ollama_model,
+            "model_available": False,
+            "models": [],
+            "error": str(exc),
+        }
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "version": updates.app_version()}
+    return {"ok": True, "version": updates.app_version(), "ollama": _ollama_status()}
 
 
 @app.get("/api/projects")
@@ -275,6 +304,13 @@ def _run_analyze(job_id: str, project_id: str) -> None:
             model=settings.ollama_model,
             num_ctx=settings.ollama_num_ctx,
         )
+        _set_job(
+            job_id,
+            phase="questions",
+            percent=42,
+            message=f"Ollama-Modell prüfen ({settings.ollama_model}) …",
+        )
+        client.ensure_model_available()
         pipe = ReportPipeline(client)
 
         _set_job(job_id, phase="questions", percent=45, message="Fragen extrahieren …")
@@ -310,7 +346,25 @@ def _run_analyze(job_id: str, project_id: str) -> None:
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")
     except Exception as exc:
-        _set_job(job_id, phase="error", error=type(exc).__name__, percent=100)
+        _set_job(job_id, phase="error", error=_public_job_error(exc), percent=100)
+
+
+def _public_job_error(exc: BaseException) -> str:
+    """Fehlertext fuer die UI - ohne Dokument-/Prompt-Inhalte."""
+    if isinstance(exc, OllamaError):
+        return str(exc)
+    if isinstance(exc, httpx.HTTPStatusError):
+        mapped = OllamaClient._map_status_error(exc, model="?")
+        return str(mapped)
+    msg = str(exc).strip()
+    if not msg:
+        return type(exc).__name__
+    # Keine langen Rohtexte durchreichen
+    if len(msg) > 240:
+        return f"{type(exc).__name__}: {msg[:200]}…"
+    if type(exc).__name__ == "HTTPStatusError":
+        return f"Ollama/HTTP-Fehler: {msg}"
+    return f"{type(exc).__name__}: {msg}" if type(exc).__name__ not in msg else msg
 
 
 @app.post("/api/projects/{project_id}/costs")
