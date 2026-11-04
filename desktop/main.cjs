@@ -36,6 +36,7 @@ function createWindow() {
     height: 860,
     minWidth: 960,
     minHeight: 680,
+    show: false,
     backgroundColor: "#eceae4",
     title: "GhostWriter",
     icon: iconPath,
@@ -47,6 +48,11 @@ function createWindow() {
     },
   });
   win.removeMenu();
+  win.once("ready-to-show", () => {
+    // Standard: Monitor voll nutzen (maximiert, nicht kiosk-Fullscreen)
+    win.maximize();
+    win.show();
+  });
   win.loadURL(START_URL);
   win.webContents.setWindowOpenHandler(({ url }) => {
     // Lokale API-Dokumente (PDF) in Electron-Fenster erlauben
