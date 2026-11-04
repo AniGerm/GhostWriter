@@ -2,7 +2,7 @@
 Type=Application
 Name=GhostWriter
 Comment=KI-gestützte Befundberichte (GdB/SGB)
-Exec=/opt/ghostwriter/venv/bin/ghostwriter
+Exec=/opt/ghostwriter/venv/bin/ghostwriter-web
 Icon=document-print
 Terminal=false
 Categories=Office;MedicalSoftware;

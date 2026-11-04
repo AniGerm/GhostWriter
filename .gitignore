@@ -12,3 +12,5 @@ dist/
 *.deb
 .DS_Store
 *.qmlc
+frontend/node_modules/
+frontend/dist/

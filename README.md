@@ -18,11 +18,20 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Start
+## Start (neue Web-UI)
 
 ```bash
-ghostwriter
+# API + React (Entwicklung)
+./scripts/dev_web.sh
+# Browser: http://127.0.0.1:5174
+
+# API + Electron-Fenster
+./scripts/start_desktop.sh
+# oder nur Backend mit gebautem Frontend:
+ghostwriter-web   # http://127.0.0.1:8787
 ```
+
+Die frühere Qt-UI bleibt vorübergehend als `ghostwriter` erreichbar.
 
 ## Updates
 
