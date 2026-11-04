@@ -294,7 +294,8 @@ button {
 .editor-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
   padding: 8px;
   border-radius: 16px;
   background: var(--surface-2);
@@ -306,13 +307,26 @@ button {
   background: transparent;
   color: var(--ink-soft);
   border-radius: 10px;
-  padding: 8px 10px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .editor-toolbar button.is-active,
 .editor-toolbar button:hover {
   background: white;
   color: var(--ink);
+  box-shadow: 0 1px 0 rgba(15, 20, 25, 0.06);
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--line);
 }
 
 .editor-canvas {
@@ -325,7 +339,9 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
-.editor-canvas .ProseMirror {
+.editor-canvas .tiptap,
+.editor-canvas .ProseMirror,
+.editor-canvas .gw-editor-surface {
   min-height: 440px;
   outline: none;
   font-family: var(--font-serif);
@@ -334,15 +350,27 @@ button {
   color: #1c1917;
 }
 
+.editor-canvas .tiptap h1,
 .editor-canvas .ProseMirror h1,
+.editor-canvas .tiptap h2,
 .editor-canvas .ProseMirror h2 {
   font-family: var(--font-ui);
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
 
+.editor-canvas .tiptap p,
 .editor-canvas .ProseMirror p {
   margin: 0 0 1em;
+}
+
+.editor-canvas .tiptap p.is-editor-empty:first-child::before,
+.editor-canvas .ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--muted);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
 .cost-card {

@@ -22,6 +22,7 @@ export default function App() {
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [draft, setDraft] = useState("");
+  const [draftEpoch, setDraftEpoch] = useState(0);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,25 +51,37 @@ export default function App() {
     api.listProjects().then(setProjects).catch(() => undefined);
   }, []);
 
+  function applyServerDraft(html: string) {
+    setDraft(html || "");
+    setDraftEpoch((n) => n + 1);
+  }
+
+  async function loadProjectDraft(projectId: string) {
+    const fresh = await api.getProject(projectId);
+    setProject(fresh);
+    applyServerDraft(fresh.draft_html);
+    setNotes(fresh.notes);
+    return fresh;
+  }
+
   useEffect(() => {
     if (!job || job.phase === "done" || job.phase === "error") return;
+    const projectId = project?.id;
+    if (!projectId) return;
     const timer = window.setInterval(() => {
       api
         .getJob(job.id)
         .then(async (next) => {
           setJob(next);
-          if (next.phase === "done" && project) {
-            const fresh = await api.getProject(project.id);
-            setProject(fresh);
-            setDraft(fresh.draft_html);
-            setNotes(fresh.notes);
+          if (next.phase === "done") {
+            await loadProjectDraft(projectId);
             setStep("Schreiben");
           }
         })
         .catch(() => undefined);
     }, 800);
     return () => window.clearInterval(timer);
-  }, [job, project]);
+  }, [job, project?.id]);
 
   const anfrage = useMemo(
     () => project?.documents.find((d) => d.role === "anfrage"),
@@ -100,16 +113,13 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      const loaded = await api.getProject(id);
-      setProject(loaded);
-      setNotes(loaded.notes);
-      setDraft(loaded.draft_html);
+      const loaded = await loadProjectDraft(id);
       setPatient(loaded.patient_label);
       setReference(loaded.reference);
       setCost(loaded.cost);
       const hasAnfrage = loaded.documents.some((d) => d.role === "anfrage");
       const hasBefund = loaded.documents.some((d) => d.role === "befund");
-      if (loaded.draft_html) setStep("Schreiben");
+      if (loaded.draft_html.trim()) setStep("Schreiben");
       else if (hasBefund) setStep("Analyse");
       else if (hasAnfrage) setStep("Befunde");
       else setStep("Anfrage");
@@ -354,7 +364,24 @@ export default function App() {
                 Zurück
               </button>
               {job?.phase === "done" && (
-                <button className="btn btn-primary" onClick={() => setStep("Schreiben")}>
+                <button
+                  className="btn btn-primary"
+                  disabled={busy || !project}
+                  onClick={() => {
+                    if (!project) return;
+                    void (async () => {
+                      setBusy(true);
+                      try {
+                        await loadProjectDraft(project.id);
+                        setStep("Schreiben");
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "Entwurf laden fehlgeschlagen");
+                      } finally {
+                        setBusy(false);
+                      }
+                    })();
+                  }}
+                >
                   Zum Schreiben
                 </button>
               )}
@@ -369,7 +396,14 @@ export default function App() {
               Entwurf prüfen und feinschleifen. Typografie wie auf Briefpapier –
               Blocksatz, klare Hierarchie.
             </p>
-            <RichEditor html={draft} onChange={setDraft} />
+            {!draft.trim() && (
+              <p className="error">Noch kein Entwurf geladen. Analyse erneut starten oder Projekt neu öffnen.</p>
+            )}
+            <RichEditor
+              key={`${project.id}-${draftEpoch}`}
+              html={draft}
+              onChange={setDraft}
+            />
             {project.questions.length > 0 && (
               <ul className="file-list" style={{ marginTop: 18 }}>
                 {project.questions.map((q) => (
