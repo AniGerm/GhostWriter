@@ -169,6 +169,7 @@ export const api = {
       available?: boolean;
       download_percent?: number;
       error?: string | null;
+      message?: string | null;
       deb_name?: string | null;
     }>("/api/updates"),
   checkUpdate: () =>
@@ -178,6 +179,7 @@ export const api = {
       latest_version?: string | null;
       available?: boolean;
       error?: string | null;
+      message?: string | null;
     }>("/api/updates/check", { method: "POST" }),
   downloadUpdate: () =>
     req<{
@@ -185,10 +187,13 @@ export const api = {
       download_percent?: number;
       error?: string | null;
       available?: boolean;
+      message?: string | null;
     }>("/api/updates/download", { method: "POST" }),
   installUpdate: () =>
     req<{
       phase: string;
       error?: string | null;
+      message?: string | null;
+      available?: boolean;
     }>("/api/updates/install", { method: "POST" }),
 };
