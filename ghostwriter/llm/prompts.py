@@ -24,9 +24,10 @@ Regeln:
 - Fehlendes klar als „nicht bekannt“ oder „nicht untersucht“ kennzeichnen.
 - Keine erfundenen Befunde, keine Rechtsberatung zum GdB-Grad.
 - Ausgabe ausschließlich als JSON: {"html":"<h1>...</h1>..."} mit semantischem HTML
-  (h1/h2/p), Abschnitte je Frage, Anrede/Bezug und Grußformel.
+  (h1/h2/p), Abschnitte je Frage und Anrede/Bezug.
+- KEINE Grußformel und KEINE Signatur/Arztzeile am Ende – die wird separat angehängt.
 - Sprache: Deutsch, sachlich, ärztlich.
 - Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten
-  (Inhalt ergänzen/kürzen/Stil anpassen), Signatur-HTML verbindlich übernehmen,
+  (Inhalt ergänzen/kürzen/Stil anpassen), keine Grußformel/Signatur erzeugen,
   keine Inhalte erfinden, die nicht in Befunden/Hinweisen stehen.
 """

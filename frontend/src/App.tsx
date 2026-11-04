@@ -294,9 +294,9 @@ export default function App() {
       const html = `<!doctype html><html lang="de"><head><meta charset="utf-8" />
 <title>Anschreiben</title>
 <style>
-  body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; margin: 18mm; color: #111; }
+  body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; margin: 25mm 20mm; color: #111; }
   h1,h2,h3 { font-family: system-ui, sans-serif; }
-  @media print { body { margin: 12mm; } }
+  @media print { body { margin: 25mm 20mm; } }
 </style></head><body>${draft}</body></html>`;
       const device = settings?.default_printer || "";
       if (window.ghostwriterDesktop?.printHtml) {

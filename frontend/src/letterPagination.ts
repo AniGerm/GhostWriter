@@ -1,8 +1,8 @@
 /** Teilt Brief-HTML in A4-Seiten (DOM-Messung, Blockelemente). */
 
 export function a4ContentHeightPx(): number {
-  // 297mm Blatt minus ~40mm Ränder, bei 96 CSS-dpi
-  return Math.round(((297 - 40) * 96) / 25.4);
+  // 297mm Blatt minus Kopf-/Fußrand (~50mm), bei 96 CSS-dpi
+  return Math.round(((297 - 50) * 96) / 25.4);
 }
 
 export function a4PageWidthPx(): number {

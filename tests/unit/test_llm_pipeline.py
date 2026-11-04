@@ -96,6 +96,32 @@ def test_compose_report_html() -> None:
     assert "Metformin" in payload
 
 
+def test_compose_report_does_not_duplicate_signature() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {
+                "html": (
+                    "<p>Antworttext</p>"
+                    "<p>Mit freundlichen Grüßen</p>"
+                    "<p>Dr. Alt</p>"
+                )
+            }
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    html = pipe.compose_report(
+        questions=[Question(1, "Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes Typ 2"],
+        notes="",
+        signature_html="<p>Mit freundlichen Grüßen</p><p>Dr. Neu</p>",
+    )
+    assert html.count("Mit freundlichen Grüßen") == 1
+    assert "Dr. Neu" in html
+    assert "Dr. Alt" not in html
+    assert html.rstrip().endswith("</p>")
+
+
 def test_compose_report_includes_revision_context() -> None:
     class ComposeFake(FakeOllama):
         def chat_json(self, **kwargs: Any) -> dict[str, Any]:

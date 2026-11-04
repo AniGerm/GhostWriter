@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from ghostwriter.llm import prompts
+from ghostwriter.signature import apply_signature
 from ghostwriter.store import Question
 
 
@@ -91,6 +92,6 @@ class ReportPipeline:
         html = str(data.get("html", "")).strip()
         if letterhead_html and letterhead_html not in html:
             html = f"{letterhead_html}\n{html}"
-        if signature_html and signature_html not in html:
-            html = f"{html}\n{signature_html}"
+        # Signatur immer kanonisch aus Einstellungen (keine LLM-Doppelung)
+        html = apply_signature(html, signature_html)
         return html

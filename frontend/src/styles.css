@@ -546,6 +546,10 @@ button {
 }
 
 .editor-canvas {
+  /* A4-Blatt mit Brief-Rändern (Kopf-/Fuß-/Seitenrand) */
+  --page-pad-top: 25mm;
+  --page-pad-bottom: 25mm;
+  --page-pad-x: 23mm;
   width: min(210mm, 100%);
   min-height: 297mm;
   height: auto;
@@ -553,25 +557,31 @@ button {
   border-radius: 2px;
   border: 1px solid rgba(15, 20, 25, 0.12);
   background-color: #fffefb;
-  /* Sichtbare A4-Trennung alle 297mm, Inhalt läuft durch */
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent calc(297mm - 1.5px),
-    rgba(120, 113, 108, 0.55) calc(297mm - 1.5px),
-    rgba(120, 113, 108, 0.55) 297mm
-  );
+  /* Seitenwechsel + angedeutete Kopf-/Fußränder je Blatt */
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, #eceae4 70%, #fffefb) 0,
+      color-mix(in srgb, #eceae4 70%, #fffefb) var(--page-pad-top),
+      transparent var(--page-pad-top),
+      transparent calc(297mm - var(--page-pad-bottom)),
+      color-mix(in srgb, #eceae4 70%, #fffefb) calc(297mm - var(--page-pad-bottom)),
+      color-mix(in srgb, #eceae4 70%, #fffefb) calc(297mm - 1.5px),
+      rgba(120, 113, 108, 0.55) calc(297mm - 1.5px),
+      rgba(120, 113, 108, 0.55) 297mm
+    );
   background-size: 100% 297mm;
-  padding: 20mm 18mm;
+  padding: var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 18px 40px rgba(15, 20, 25, 0.14);
+  box-sizing: border-box;
 }
 
 .editor-canvas .tiptap,
 .editor-canvas .ProseMirror,
 .editor-canvas .gw-editor-surface {
-  min-height: calc(297mm - 40mm);
+  min-height: calc(297mm - var(--page-pad-top) - var(--page-pad-bottom));
   outline: none;
   font-family: var(--font-serif);
   font-size: 12pt;
@@ -876,7 +886,7 @@ button {
 }
 
 .a4-page-body {
-  padding: 12px 18mm 18mm;
+  padding: 8px 23mm 25mm;
 }
 
 .a4-page-raster {
