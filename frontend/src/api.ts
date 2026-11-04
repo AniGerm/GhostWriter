@@ -50,6 +50,19 @@ export type ProjectSummary = {
   updated_at: string;
 };
 
+export type AppSettings = {
+  ollama_model: string;
+  ollama_num_ctx: number;
+  flat_fee: number;
+  copy_tier_up_to: number;
+  copy_tier_price: number;
+  after_last_tier_price: number;
+  letterhead_html: string;
+  signature_html: string;
+  github_repo: string;
+  postage: Record<string, number>;
+};
+
 export const api = {
   health: () =>
     req<{
@@ -117,5 +130,12 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ page_count, postage_key, custom_postage }),
+    }),
+  getSettings: () => req<AppSettings>("/api/settings"),
+  putSettings: (patch: Partial<AppSettings>) =>
+    req<AppSettings>("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
     }),
 };

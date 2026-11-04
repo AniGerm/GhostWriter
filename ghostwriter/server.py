@@ -80,6 +80,7 @@ class SettingsBody(BaseModel):
     letterhead_html: str | None = None
     signature_html: str | None = None
     github_repo: str | None = None
+    postage: dict[str, float] | None = None
 
 
 class CreateProjectBody(BaseModel):

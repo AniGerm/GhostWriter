@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type Job, type Project, type ProjectSummary } from "./api";
+import { api, type AppSettings, type Job, type Project, type ProjectSummary } from "./api";
 import { DropZone } from "./components/DropZone";
+import { IconGear } from "./components/editorIcons";
 import { RichEditor } from "./components/RichEditor";
 
 const STEPS = [
@@ -11,6 +12,13 @@ const STEPS = [
   "Schreiben",
   "Kosten",
 ] as const;
+
+const POSTAGE_LABELS: Record<string, string> = {
+  standard: "Standardbrief",
+  kompakt: "Kompaktbrief",
+  gross: "Großbrief",
+  maxi: "Maxibrief",
+};
 
 type Step = (typeof STEPS)[number];
 
@@ -28,8 +36,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [pages, setPages] = useState(1);
   const [postage, setPostage] = useState<string>("standard");
+  const [customPostage, setCustomPostage] = useState<string>("");
   const [cost, setCost] = useState<Project["cost"]>(null);
   const [version, setVersion] = useState("");
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [postageDraft, setPostageDraft] = useState<Record<string, number>>({});
+  const [flatFeeDraft, setFlatFeeDraft] = useState(25);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -49,6 +63,16 @@ export default function App() {
       })
       .catch(() => undefined);
     api.listProjects().then(setProjects).catch(() => undefined);
+    api
+      .getSettings()
+      .then((s) => {
+        setSettings(s);
+        setPostageDraft({ ...s.postage });
+        setFlatFeeDraft(s.flat_fee);
+        const firstKey = Object.keys(s.postage)[0];
+        if (firstKey) setPostage(firstKey);
+      })
+      .catch(() => undefined);
   }, []);
 
   function applyServerDraft(html: string) {
@@ -179,8 +203,13 @@ export default function App() {
   async function calcCost() {
     if (!project) return;
     setBusy(true);
+    setError(null);
     try {
-      const result = await api.costs(project.id, pages, postage);
+      const custom = customPostage.trim() === "" ? null : Number(customPostage);
+      if (custom !== null && (Number.isNaN(custom) || custom < 0)) {
+        throw new Error("Manueller Versandpreis muss eine Zahl ≥ 0 sein");
+      }
+      const result = await api.costs(project.id, pages, postage || null, custom);
       setCost(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Kostenfehler");
@@ -188,6 +217,33 @@ export default function App() {
       setBusy(false);
     }
   }
+
+  async function saveCostDefaults() {
+    setBusy(true);
+    setError(null);
+    setSettingsSaved(false);
+    try {
+      const saved = await api.putSettings({
+        postage: postageDraft,
+        flat_fee: flatFeeDraft,
+      });
+      setSettings(saved);
+      setPostageDraft({ ...saved.postage });
+      setFlatFeeDraft(saved.flat_fee);
+      setSettingsSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Einstellungen speichern fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const postageOptions = useMemo(() => {
+    const source = Object.keys(postageDraft).length
+      ? postageDraft
+      : settings?.postage ?? { standard: 0.95, kompakt: 1.25, gross: 2.1, maxi: 3.4 };
+    return Object.entries(source);
+  }, [postageDraft, settings]);
 
   return (
     <div className="app-shell">
@@ -441,7 +497,7 @@ export default function App() {
             <h1 className="hero-title">Druck & Kosten</h1>
             <p className="hero-copy">
               Die Anfrage des Landratsamts wird nicht mitgezählt. Seiten manuell
-              korrigierbar.
+              korrigierbar. Versandpreise lassen sich anpassen und als Voreinstellung speichern.
             </p>
             <div className="grid-2">
               <div className="field">
@@ -455,15 +511,111 @@ export default function App() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="postage">Versand</label>
-                <input
+                <label htmlFor="postage">Versandart</label>
+                <select
                   id="postage"
                   value={postage}
                   onChange={(e) => setPostage(e.target.value)}
-                  placeholder="standard | kompakt | gross | maxi"
-                />
+                >
+                  {postageOptions.map(([key, price]) => (
+                    <option key={key} value={key}>
+                      {POSTAGE_LABELS[key] ?? key} ({price.toFixed(2)} €)
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+            <div className="field" style={{ marginTop: 16 }}>
+              <label htmlFor="custom-postage">Versand manuell überschreiben (€, optional)</label>
+              <input
+                id="custom-postage"
+                type="number"
+                min={0}
+                step={0.01}
+                value={customPostage}
+                onChange={(e) => setCustomPostage(e.target.value)}
+                placeholder="leer = Preis der Versandart"
+              />
+            </div>
+
+            <div className="cost-card" style={{ marginTop: 20 }}>
+              <div className="cost-settings-head">
+                <h2>Kosten-Voreinstellungen</h2>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="Voreinstellungen bearbeiten"
+                  aria-label="Voreinstellungen bearbeiten"
+                  aria-expanded={settingsOpen}
+                  onClick={() => {
+                    setSettingsOpen((v) => !v);
+                    setSettingsSaved(false);
+                  }}
+                >
+                  <IconGear />
+                </button>
+              </div>
+              {settingsOpen && (
+                <>
+                  <div className="field">
+                    <label htmlFor="flat-fee">Pauschale (€)</label>
+                    <input
+                      id="flat-fee"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={flatFeeDraft}
+                      onChange={(e) => setFlatFeeDraft(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="postage-grid">
+                    {postageOptions.map(([key]) => (
+                      <div className="postage-row" key={key}>
+                        <div className="field">
+                          <label htmlFor={`postage-${key}`}>{POSTAGE_LABELS[key] ?? key}</label>
+                          <input
+                            id={`postage-${key}`}
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={postageDraft[key] ?? 0}
+                            onChange={(e) =>
+                              setPostageDraft((prev) => ({
+                                ...prev,
+                                [key]: Number(e.target.value),
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="field">
+                          <label>&nbsp;</label>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => setPostage(key)}
+                          >
+                            Diese wählen
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="actions" style={{ marginTop: 16 }}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={busy}
+                      onClick={() => void saveCostDefaults()}
+                    >
+                      Als Voreinstellung speichern
+                    </button>
+                  </div>
+                  {settingsSaved && (
+                    <p className="hint">Gespeichert – gilt für künftige Kostenberechnungen.</p>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="actions">
               <button className="btn btn-ghost" onClick={() => setStep("Schreiben")}>
                 Zurück

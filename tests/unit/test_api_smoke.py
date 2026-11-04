@@ -114,6 +114,32 @@ def test_costs_and_missing_job(api: TestClient) -> None:
     assert api.get("/api/projects/missing").status_code == 404
 
 
+def test_settings_postage_roundtrip(api: TestClient) -> None:
+    before = api.get("/api/settings").json()
+    assert "postage" in before
+    updated = api.put(
+        "/api/settings",
+        json={
+            "postage": {
+                "standard": 1.1,
+                "kompakt": 1.4,
+                "gross": 2.5,
+                "maxi": 4.0,
+            },
+            "flat_fee": 30.0,
+        },
+    ).json()
+    assert updated["postage"]["standard"] == 1.1
+    assert updated["flat_fee"] == 30.0
+    project = api.post("/api/projects", json={"patient_label": "Kosten", "reference": ""}).json()
+    costs = api.post(
+        f"/api/projects/{project['id']}/costs",
+        json={"page_count": 0, "postage_key": "standard"},
+    ).json()
+    assert costs["postage"] == 1.1
+    assert costs["flat_fee"] == 30.0
+
+
 def test_analyze_rejects_missing_model_before_pipeline(
     api: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
