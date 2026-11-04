@@ -549,11 +549,6 @@ export default function App() {
 
         {step === "Schreiben" && project && (
           <>
-            <h1 className="hero-title">Antwortschreiben</h1>
-            <p className="hero-copy">
-              Entwurf prüfen und feinschleifen. Typografie wie auf Briefpapier –
-              Blocksatz, klare Hierarchie.
-            </p>
             {!draft.trim() && (
               <p className="error">Noch kein Entwurf geladen. Analyse erneut starten oder Projekt neu öffnen.</p>
             )}
@@ -563,16 +558,22 @@ export default function App() {
               onChange={setDraft}
             />
             {project.questions.length > 0 && (
-              <ul className="file-list" style={{ marginTop: 18 }}>
-                {project.questions.map((q) => (
-                  <li key={q.number}>
-                    <span>
-                      {q.number}. {q.text}
-                    </span>
-                    <span>{q.keyword}</span>
-                  </li>
-                ))}
-              </ul>
+              <details className="questions-fold">
+                <summary>
+                  Erkannte Fragen aus der Landratsamts-Anfrage
+                  <span className="questions-fold-count">{project.questions.length}</span>
+                </summary>
+                <ul className="file-list">
+                  {project.questions.map((q) => (
+                    <li key={q.number}>
+                      <span>
+                        {q.number}. {q.text}
+                      </span>
+                      {q.keyword ? <span>{q.keyword}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
             <div className="actions">
               <button className="btn btn-ghost" onClick={() => setStep("Analyse")}>

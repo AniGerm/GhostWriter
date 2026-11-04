@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import type { Project } from "../api";
+import { api, type Project } from "../api";
 
 export type PreviewPage = {
   id: string;
   group: "anschreiben" | "befund";
   label: string;
   documentId?: string;
+  pageNumber: number;
 };
 
 type Props = {
@@ -33,6 +34,7 @@ export function buildPreviewPages(project: Project, draftHtml: string): PreviewP
       id: `letter:${i}`,
       group: "anschreiben",
       label: `Anschreiben · Seite ${i}`,
+      pageNumber: i,
     });
   }
   for (const doc of project.documents.filter((d) => d.role === "befund")) {
@@ -43,6 +45,7 @@ export function buildPreviewPages(project: Project, draftHtml: string): PreviewP
         group: "befund",
         label: `${doc.display_name} · Seite ${i}`,
         documentId: doc.id,
+        pageNumber: i,
       });
     }
   }
@@ -70,6 +73,10 @@ export function letterIncluded(selected: Record<string, boolean>): boolean {
   return Object.entries(selected).some(([key, on]) => on && key.startsWith("letter:"));
 }
 
+function selectionClass(on: boolean): string {
+  return on ? "a4-page is-included" : "a4-page is-excluded";
+}
+
 export function PrintPreview({ project, draftHtml, selected, onChangeSelected }: Props) {
   const pages = useMemo(
     () => buildPreviewPages(project, draftHtml),
@@ -77,6 +84,7 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
   );
   const letterPages = pages.filter((p) => p.group === "anschreiben");
   const befundPages = pages.filter((p) => p.group === "befund");
+  const letterCount = letterPages.length;
 
   function toggle(id: string) {
     onChangeSelected({ ...selected, [id]: !selected[id] });
@@ -107,18 +115,24 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
             </span>
           </div>
           <ul>
-            {letterPages.map((page) => (
-              <li key={page.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(selected[page.id])}
-                    onChange={() => toggle(page.id)}
-                  />
-                  {page.label}
-                </label>
-              </li>
-            ))}
+            {letterPages.map((page) => {
+              const on = Boolean(selected[page.id]);
+              return (
+                <li key={page.id}>
+                  <button
+                    type="button"
+                    className={on ? "preview-pick is-included" : "preview-pick is-excluded"}
+                    onClick={() => toggle(page.id)}
+                    aria-pressed={on}
+                  >
+                    <span className="preview-pick-mark" aria-hidden>
+                      {on ? "✓" : "×"}
+                    </span>
+                    <span>{page.label}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
         <div className="preview-group">
@@ -138,18 +152,24 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
             <p className="hint">Keine Befunde im Projekt.</p>
           ) : (
             <ul>
-              {befundPages.map((page) => (
-                <li key={page.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selected[page.id])}
-                      onChange={() => toggle(page.id)}
-                    />
-                    {page.label}
-                  </label>
-                </li>
-              ))}
+              {befundPages.map((page) => {
+                const on = Boolean(selected[page.id]);
+                return (
+                  <li key={page.id}>
+                    <button
+                      type="button"
+                      className={on ? "preview-pick is-included" : "preview-pick is-excluded"}
+                      onClick={() => toggle(page.id)}
+                      aria-pressed={on}
+                    >
+                      <span className="preview-pick-mark" aria-hidden>
+                        {on ? "✓" : "×"}
+                      </span>
+                      <span>{page.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -157,32 +177,84 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
           Gewählte Seiten: {countSelectedPages(selected)} (für Kostenberechnung)
         </p>
       </aside>
+
       <section className="preview-canvas" aria-label="Druckvorschau">
-        <div className="preview-sheet">
-          <div
-            className="preview-letter"
-            dangerouslySetInnerHTML={{
-              __html: draftHtml.trim() || "<p><em>Kein Anschreiben vorhanden.</em></p>",
-            }}
-          />
-        </div>
-        {project.documents
-          .filter((d) => d.role === "befund")
-          .map((doc) => {
-            const anySelected = pages.some(
-              (p) => p.documentId === doc.id && selected[p.id],
-            );
-            if (!anySelected) return null;
-            return (
-              <div className="preview-sheet preview-attachment" key={doc.id}>
-                <h3>{doc.display_name}</h3>
-                <p>
-                  Anhang ({Math.max(1, doc.page_count || 1)} Seite
-                  {doc.page_count === 1 ? "" : "n"}) – wird beim Drucken als Datei geöffnet.
+        {letterPages.map((page) => {
+          const on = Boolean(selected[page.id]);
+          return (
+            <button
+              key={page.id}
+              type="button"
+              className={selectionClass(on)}
+              onClick={() => toggle(page.id)}
+              aria-pressed={on}
+              aria-label={`${page.label}${on ? ", in Druckauswahl" : ", ausgeschlossen"}`}
+            >
+              <span className="a4-badge" aria-hidden>
+                {on ? "✓" : "×"}
+              </span>
+              <div className="a4-page-label">Anschreiben · Seite {page.pageNumber}/{letterCount}</div>
+              <div
+                className="a4-page-body preview-letter"
+                style={
+                  letterCount > 1
+                    ? {
+                        maxHeight: "257mm",
+                        overflow: "hidden",
+                      }
+                    : undefined
+                }
+                dangerouslySetInnerHTML={{
+                  __html:
+                    page.pageNumber === 1
+                      ? draftHtml.trim() || "<p><em>Kein Anschreiben vorhanden.</em></p>"
+                      : `<p class="hint">Fortsetzung Seite ${page.pageNumber} (geschätzt für Kosten/Druck).</p>`,
+                }}
+              />
+            </button>
+          );
+        })}
+
+        {befundPages.map((page) => {
+          const on = Boolean(selected[page.id]);
+          const src =
+            page.documentId != null
+              ? api.documentPageUrl(project.id, page.documentId, page.pageNumber)
+              : "";
+          return (
+            <button
+              key={page.id}
+              type="button"
+              className={selectionClass(on)}
+              onClick={() => toggle(page.id)}
+              aria-pressed={on}
+              aria-label={`${page.label}${on ? ", in Druckauswahl" : ", ausgeschlossen"}`}
+            >
+              <span className="a4-badge" aria-hidden>
+                {on ? "✓" : "×"}
+              </span>
+              <div className="a4-page-label">{page.label}</div>
+              <div className="a4-page-body a4-page-raster">
+                {src ? (
+                  <img
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    onError={(event) => {
+                      const img = event.currentTarget;
+                      img.style.display = "none";
+                      const fallback = img.nextElementSibling;
+                      if (fallback instanceof HTMLElement) fallback.hidden = false;
+                    }}
+                  />
+                ) : null}
+                <p className="hint" hidden>
+                  Seitenvorschau nicht verfügbar – Datei wird beim Drucken geöffnet.
                 </p>
               </div>
-            );
-          })}
+            </button>
+          );
+        })}
       </section>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type AppSettings } from "../api";
+import { composeSignatureHtml, parseSignatureHtml } from "../signature";
 import { IconGear } from "./editorIcons";
 
 type PrinterOption = { name: string; is_default?: boolean };
@@ -21,6 +22,8 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [printer, setPrinter] = useState("");
   const [printers, setPrinters] = useState<PrinterOption[]>([]);
+  const [greeting, setGreeting] = useState("Mit freundlichen Grüßen");
+  const [doctor, setDoctor] = useState("");
   const [updateInfo, setUpdateInfo] = useState<{
     phase: string;
     current_version?: string | null;
@@ -36,6 +39,9 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     setOllamaUrl(settings.ollama_base_url || "http://127.0.0.1:11434");
     setOllamaModel(settings.ollama_model || "");
     setPrinter(settings.default_printer || "");
+    const parsed = parseSignatureHtml(settings.signature_html || "");
+    setGreeting(parsed.greeting || "Mit freundlichen Grüßen");
+    setDoctor(parsed.doctor);
   }, [settings]);
 
   useEffect(() => {
@@ -181,6 +187,7 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
         ollama_base_url: ollamaUrl.trim(),
         ollama_model: ollamaModel.trim(),
         default_printer: printer,
+        signature_html: composeSignatureHtml(greeting, doctor),
       });
       onSaved(next);
       setSaved(true);
@@ -264,6 +271,29 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
               ))}
             </select>
           </div>
+
+          <div className="settings-divider" />
+          <h2>Briefabschluss</h2>
+          <div className="field">
+            <label htmlFor="signature-greeting">Grußformel</label>
+            <input
+              id="signature-greeting"
+              value={greeting}
+              onChange={(e) => setGreeting(e.target.value)}
+              placeholder="Mit freundlichen Grüßen"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="signature-doctor">Arzt / Absender</label>
+            <textarea
+              id="signature-doctor"
+              rows={3}
+              value={doctor}
+              onChange={(e) => setDoctor(e.target.value)}
+              placeholder={"Dr. med. …\nFacharzt für …"}
+            />
+          </div>
+
           <div className="actions" style={{ marginTop: 12 }}>
             <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
               Speichern

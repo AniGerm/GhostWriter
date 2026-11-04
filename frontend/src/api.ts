@@ -143,6 +143,8 @@ export const api = {
     }),
   documentUrl: (projectId: string, documentId: string) =>
     `${BASE}/api/projects/${projectId}/documents/${documentId}/file`,
+  documentPageUrl: (projectId: string, documentId: string, pageNumber: number) =>
+    `${BASE}/api/projects/${projectId}/documents/${documentId}/pages/${pageNumber}`,
   listPrinters: () =>
     req<{
       printers: { name: string; is_default: boolean }[];

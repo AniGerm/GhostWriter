@@ -24,6 +24,7 @@ from ghostwriter.extract import ExtractionResult, extract_document_text
 from ghostwriter.llm.client import OllamaClient, OllamaError, is_allowed_ollama_host
 from ghostwriter.llm.pipeline import ReportPipeline
 from ghostwriter.paths import default_data_root
+from ghostwriter.preview import page_preview_path, preview_cache_dir
 from ghostwriter.printers import list_cups_printers
 from ghostwriter.settings import load_settings, save_settings
 from ghostwriter.store import DocumentRole, ProjectStore, Question
@@ -235,6 +236,29 @@ def download_document(project_id: str, document_id: str) -> FileResponse:
         raise HTTPException(404, "Datei fehlt")
     media = "application/pdf" if path.suffix.lower() == ".pdf" else "application/octet-stream"
     return FileResponse(path, media_type=media, filename=doc.display_name)
+
+
+@app.get("/api/projects/{project_id}/documents/{document_id}/pages/{page_number}")
+def document_page_preview(project_id: str, document_id: str, page_number: int) -> FileResponse:
+    """Gerenderte A4-Seite als PNG für die Druckvorschau."""
+    if STORE.get_project(project_id) is None:
+        raise HTTPException(404, "Projekt nicht gefunden")
+    docs = STORE.list_documents(project_id)
+    doc = next((d for d in docs if d.id == document_id), None)
+    if doc is None:
+        raise HTTPException(404, "Dokument nicht gefunden")
+    path = Path(doc.stored_path)
+    if not path.is_file():
+        raise HTTPException(404, "Datei fehlt")
+    try:
+        png = page_preview_path(path, preview_cache_dir(DATA_ROOT, document_id), page_number)
+    except ValueError as exc:
+        raise HTTPException(400, "Vorschau nicht möglich") from exc
+    except Exception as exc:
+        raise HTTPException(500, "Seitenvorschau fehlgeschlagen") from exc
+    if png is None or not png.is_file():
+        raise HTTPException(404, "Seite nicht gefunden")
+    return FileResponse(png, media_type="image/png", filename=f"page-{page_number}.png")
 
 
 @app.post("/api/projects/{project_id}/documents")

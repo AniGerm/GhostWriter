@@ -154,8 +154,10 @@ export function RichEditor({ html, onChange }: Props) {
           <IconAlignJustify />
         </button>
       </div>
-      <div className="editor-canvas">
-        <EditorContent editor={editor} />
+      <div className="editor-desk" aria-label="A4-Briefblatt">
+        <div className="editor-canvas">
+          <EditorContent editor={editor} />
+        </div>
       </div>
     </div>
   );
