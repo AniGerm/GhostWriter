@@ -30,10 +30,10 @@ class CostSettings:
     copy_tiers: tuple[CopyTier, ...] = (CopyTier(up_to_page=100, price_per_page=0.50),)
     after_last_tier_price: float = 0.15
     postage_options: tuple[PostageOption, ...] = (
-        PostageOption(key="standard", label="Standardbrief", price=0.95),
-        PostageOption(key="kompakt", label="Kompaktbrief", price=1.25),
-        PostageOption(key="gross", label="Großbrief", price=2.10),
-        PostageOption(key="maxi", label="Maxibrief", price=3.40),
+        PostageOption(key="standard", label="Standardbrief bis 20 g", price=0.95),
+        PostageOption(key="kompakt", label="Kompaktbrief bis 50 g", price=1.10),
+        PostageOption(key="gross", label="Großbrief bis 500 g", price=1.80),
+        PostageOption(key="maxi", label="Maxibrief bis 1000 g", price=3.40),
     )
 
 

@@ -61,6 +61,7 @@ export type AppSettings = {
   signature_html: string;
   github_repo: string;
   postage: Record<string, number>;
+  default_postage_key?: string;
 };
 
 export const api = {
@@ -138,4 +139,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     }),
+  documentUrl: (projectId: string, documentId: string) =>
+    `${BASE}/api/projects/${projectId}/documents/${documentId}/file`,
 };

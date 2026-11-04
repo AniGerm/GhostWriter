@@ -26,11 +26,12 @@ class AppSettings:
     postage: dict[str, float] = field(
         default_factory=lambda: {
             "standard": 0.95,
-            "kompakt": 1.25,
-            "gross": 2.10,
+            "kompakt": 1.10,
+            "gross": 1.80,
             "maxi": 3.40,
         }
     )
+    default_postage_key: str = "gross"
     spool_dir: str = ""
     default_font: str = "Liberation Serif"
     default_font_size: int = 12
@@ -39,10 +40,10 @@ class AppSettings:
 
     def to_cost_settings(self) -> CostSettings:
         labels = {
-            "standard": "Standardbrief",
-            "kompakt": "Kompaktbrief",
-            "gross": "Großbrief",
-            "maxi": "Maxibrief",
+            "standard": "Standardbrief bis 20 g",
+            "kompakt": "Kompaktbrief bis 50 g",
+            "gross": "Großbrief bis 500 g",
+            "maxi": "Maxibrief bis 1000 g",
         }
         options = tuple(
             PostageOption(key=k, label=labels.get(k, k), price=v) for k, v in self.postage.items()

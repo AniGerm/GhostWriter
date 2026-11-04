@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -81,6 +82,7 @@ class SettingsBody(BaseModel):
     signature_html: str | None = None
     github_repo: str | None = None
     postage: dict[str, float] | None = None
+    default_postage_key: str | None = None
 
 
 class CreateProjectBody(BaseModel):
@@ -214,6 +216,21 @@ def put_draft(project_id: str, body: DraftBody) -> dict[str, Any]:
         raise HTTPException(404, "Projekt nicht gefunden")
     STORE.set_draft_html(project_id, body.html)
     return _project_dict(project_id)
+
+
+@app.get("/api/projects/{project_id}/documents/{document_id}/file")
+def download_document(project_id: str, document_id: str) -> FileResponse:
+    if STORE.get_project(project_id) is None:
+        raise HTTPException(404, "Projekt nicht gefunden")
+    docs = STORE.list_documents(project_id)
+    doc = next((d for d in docs if d.id == document_id), None)
+    if doc is None:
+        raise HTTPException(404, "Dokument nicht gefunden")
+    path = Path(doc.stored_path)
+    if not path.is_file():
+        raise HTTPException(404, "Datei fehlt")
+    media = "application/pdf" if path.suffix.lower() == ".pdf" else "application/octet-stream"
+    return FileResponse(path, media_type=media, filename=doc.display_name)
 
 
 @app.post("/api/projects/{project_id}/documents")
@@ -411,6 +428,7 @@ def get_settings() -> dict[str, Any]:
         "signature_html": s.signature_html,
         "github_repo": s.github_repo,
         "postage": s.postage,
+        "default_postage_key": s.default_postage_key,
     }
 
 

@@ -114,6 +114,26 @@ def test_costs_and_missing_job(api: TestClient) -> None:
     assert api.get("/api/projects/missing").status_code == 404
 
 
+def test_document_download(api: TestClient, tmp_path: Path) -> None:
+    import ghostwriter.server as server
+
+    project = api.post("/api/projects", json={"patient_label": "Doc", "reference": ""}).json()
+    pid = project["id"]
+    pdf = tmp_path / "befund.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    with pdf.open("rb") as handle:
+        up = api.post(
+            f"/api/projects/{pid}/documents",
+            data={"role": "befund"},
+            files={"file": ("befund.pdf", handle, "application/pdf")},
+        )
+    assert up.status_code == 200
+    doc_id = server.STORE.list_documents(pid)[0].id
+    response = api.get(f"/api/projects/{pid}/documents/{doc_id}/file")
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF")
+
+
 def test_settings_postage_roundtrip(api: TestClient) -> None:
     before = api.get("/api/settings").json()
     assert "postage" in before
