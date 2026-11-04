@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type AppSettings, type Job, type Project, type ProjectSummary } from "./api";
+import { AppSettingsMenu } from "./components/AppSettingsMenu";
 import { DropZone } from "./components/DropZone";
 import { IconGear } from "./components/editorIcons";
 import {
@@ -268,21 +269,37 @@ export default function App() {
     void api.listProjects().then(setProjects).catch(() => undefined);
   }
 
-  function printPacket() {
+  async function printPacket() {
     if (!project) return;
     if (letterIncluded(pageSelection) && draft.trim()) {
-      const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
-      if (popup) {
-        popup.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8" />
+      const html = `<!doctype html><html lang="de"><head><meta charset="utf-8" />
 <title>Anschreiben</title>
 <style>
   body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; margin: 18mm; color: #111; }
   h1,h2,h3 { font-family: system-ui, sans-serif; }
   @media print { body { margin: 12mm; } }
-</style></head><body>${draft}</body></html>`);
-        popup.document.close();
-        popup.focus();
-        popup.print();
+</style></head><body>${draft}</body></html>`;
+      const device = settings?.default_printer || "";
+      if (window.ghostwriterDesktop?.printHtml) {
+        try {
+          await window.ghostwriterDesktop.printHtml(html, device);
+        } catch {
+          const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
+          if (popup) {
+            popup.document.write(html);
+            popup.document.close();
+            popup.focus();
+            popup.print();
+          }
+        }
+      } else {
+        const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
+        if (popup) {
+          popup.document.write(html);
+          popup.document.close();
+          popup.focus();
+          popup.print();
+        }
       }
     }
     const pagesList = buildPreviewPages(project, draft);
@@ -292,8 +309,7 @@ export default function App() {
   }
 
   function printAndFinish() {
-    printPacket();
-    finishToStart();
+    void printPacket().finally(() => finishToStart());
   }
 
   async function goToPreview() {
@@ -325,18 +341,28 @@ export default function App() {
           <strong>GhostWriter</strong>
           <span>Lokale GdB-Berichte{version ? ` · v${version}` : ""}</span>
         </div>
-        <nav className="steps" aria-label="Ablauf">
-          {STEPS.map((name, index) => (
-            <div
-              key={name}
-              className={`step-pill${step === name ? " active" : ""}${
-                index < stepIndex ? " done" : ""
-              }`}
-            >
-              {index + 1}. {name}
-            </div>
-          ))}
-        </nav>
+        <div className="topbar-right">
+          <nav className="steps" aria-label="Ablauf">
+            {STEPS.map((name, index) => (
+              <div
+                key={name}
+                className={`step-pill${step === name ? " active" : ""}${
+                  index < stepIndex ? " done" : ""
+                }`}
+              >
+                {index + 1}. {name}
+              </div>
+            ))}
+          </nav>
+          <AppSettingsMenu
+            settings={settings}
+            onSaved={(s) => {
+              setSettings(s);
+              setPostageDraft({ ...s.postage });
+              setFlatFeeDraft(s.flat_fee);
+            }}
+          />
+        </div>
       </header>
 
       <main className="panel">

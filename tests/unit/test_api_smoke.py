@@ -134,6 +134,25 @@ def test_document_download(api: TestClient, tmp_path: Path) -> None:
     assert response.content.startswith(b"%PDF")
 
 
+def test_settings_rejects_public_ollama_url(api: TestClient) -> None:
+    response = api.put(
+        "/api/settings",
+        json={"ollama_base_url": "http://evil.example:11434"},
+    )
+    assert response.status_code == 400
+
+
+def test_settings_accepts_lan_ollama_url(api: TestClient) -> None:
+    response = api.put(
+        "/api/settings",
+        json={"ollama_base_url": "http://192.168.0.10:11434", "default_printer": "GhostWriter"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ollama_base_url"] == "http://192.168.0.10:11434"
+    assert body["default_printer"] == "GhostWriter"
+
+
 def test_settings_postage_roundtrip(api: TestClient) -> None:
     before = api.get("/api/settings").json()
     assert "postage" in before

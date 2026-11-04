@@ -32,6 +32,7 @@ class AppSettings:
         }
     )
     default_postage_key: str = "gross"
+    default_printer: str = ""
     spool_dir: str = ""
     default_font: str = "Liberation Serif"
     default_font_size: int = 12

@@ -9,6 +9,7 @@ import uuid
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -20,9 +21,10 @@ from pydantic import BaseModel, Field
 from ghostwriter import updates
 from ghostwriter.costs import calculate_costs
 from ghostwriter.extract import ExtractionResult, extract_document_text
-from ghostwriter.llm.client import OllamaClient, OllamaError
+from ghostwriter.llm.client import OllamaClient, OllamaError, is_allowed_ollama_host
 from ghostwriter.llm.pipeline import ReportPipeline
 from ghostwriter.paths import default_data_root
+from ghostwriter.printers import list_cups_printers
 from ghostwriter.settings import load_settings, save_settings
 from ghostwriter.store import DocumentRole, ProjectStore, Question
 from ghostwriter.updates import set_github_repo
@@ -72,6 +74,7 @@ class CostBody(BaseModel):
 
 
 class SettingsBody(BaseModel):
+    ollama_base_url: str | None = None
     ollama_model: str | None = None
     ollama_num_ctx: int | None = None
     flat_fee: float | None = None
@@ -83,6 +86,7 @@ class SettingsBody(BaseModel):
     github_repo: str | None = None
     postage: dict[str, float] | None = None
     default_postage_key: str | None = None
+    default_printer: str | None = None
 
 
 class CreateProjectBody(BaseModel):
@@ -418,6 +422,7 @@ def compute_costs(project_id: str, body: CostBody) -> dict[str, Any]:
 def get_settings() -> dict[str, Any]:
     s = load_settings(SETTINGS_PATH)
     return {
+        "ollama_base_url": s.ollama_base_url,
         "ollama_model": s.ollama_model,
         "ollama_num_ctx": s.ollama_num_ctx,
         "flat_fee": s.flat_fee,
@@ -429,6 +434,7 @@ def get_settings() -> dict[str, Any]:
         "github_repo": s.github_repo,
         "postage": s.postage,
         "default_postage_key": s.default_postage_key,
+        "default_printer": s.default_printer,
     }
 
 
@@ -437,6 +443,18 @@ def put_settings(body: SettingsBody) -> dict[str, Any]:
     global SETTINGS
     s = load_settings(SETTINGS_PATH)
     data = body.model_dump(exclude_none=True)
+    if "ollama_base_url" in data:
+        host = (urlparse(str(data["ollama_base_url"])).hostname or "").lower()
+        if not is_allowed_ollama_host(host):
+            raise HTTPException(
+                400,
+                "Ollama-URL nur lokal oder privates LAN "
+                "(127.0.0.1/localhost/192.168.x/10.x/*.local)",
+            )
+        try:
+            OllamaClient(base_url=str(data["ollama_base_url"]))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
     for key, value in data.items():
         setattr(s, key, value)
     if "github_repo" in data:
@@ -447,6 +465,17 @@ def put_settings(body: SettingsBody) -> dict[str, Any]:
     save_settings(SETTINGS_PATH, s)
     SETTINGS = s
     return get_settings()
+
+
+@app.get("/api/printers")
+def get_printers() -> dict[str, Any]:
+    printers = list_cups_printers()
+    settings = load_settings(SETTINGS_PATH)
+    return {
+        "printers": [{"name": p.name, "is_default": p.is_default} for p in printers],
+        "default_printer": settings.default_printer,
+        "system_default": next((p.name for p in printers if p.is_default), ""),
+    }
 
 
 @app.get("/api/updates")

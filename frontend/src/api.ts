@@ -51,6 +51,7 @@ export type ProjectSummary = {
 };
 
 export type AppSettings = {
+  ollama_base_url: string;
   ollama_model: string;
   ollama_num_ctx: number;
   flat_fee: number;
@@ -62,6 +63,7 @@ export type AppSettings = {
   github_repo: string;
   postage: Record<string, number>;
   default_postage_key?: string;
+  default_printer?: string;
 };
 
 export const api = {
@@ -141,4 +143,10 @@ export const api = {
     }),
   documentUrl: (projectId: string, documentId: string) =>
     `${BASE}/api/projects/${projectId}/documents/${documentId}/file`,
+  listPrinters: () =>
+    req<{
+      printers: { name: string; is_default: boolean }[];
+      default_printer: string;
+      system_default: string;
+    }>("/api/printers"),
 };

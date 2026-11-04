@@ -9,8 +9,8 @@ import pytest
 from ghostwriter.llm.client import OllamaClient
 
 
-def test_rejects_remote_host() -> None:
-    with pytest.raises(ValueError, match="lokal"):
+def test_rejects_public_remote_host() -> None:
+    with pytest.raises(ValueError, match="privat|lokal|LAN"):
         OllamaClient(base_url="http://evil.example:11434")
 
 

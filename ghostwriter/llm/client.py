@@ -1,7 +1,8 @@
-"""Minimaler Ollama-HTTP-Client (nur localhost)."""
+"""Minimaler Ollama-HTTP-Client (localhost oder privates LAN)."""
 
 from __future__ import annotations
 
+import ipaddress
 import json
 from typing import Any
 from urllib.parse import urlparse
@@ -13,8 +14,22 @@ class OllamaError(RuntimeError):
     """Nutzerverständlicher Ollama-Fehler ohne Anfrage-/Dokumentinhalt."""
 
 
+def is_allowed_ollama_host(host: str) -> bool:
+    """Erlaubt Loopback, RFC1918 und ``*.local`` - kein oeffentliches Internet."""
+    cleaned = (host or "").strip().lower().rstrip(".")
+    if cleaned in {"127.0.0.1", "localhost", "::1"}:
+        return True
+    if cleaned.endswith(".local"):
+        return True
+    try:
+        addr = ipaddress.ip_address(cleaned)
+    except ValueError:
+        return False
+    return bool(addr.is_loopback or addr.is_private)
+
+
 class OllamaClient:
-    """Spricht die lokale Ollama Chat-API an."""
+    """Spricht die Ollama Chat-API an (lokal oder Praxis-LAN)."""
 
     def __init__(
         self,
@@ -24,19 +39,23 @@ class OllamaClient:
         num_ctx: int = 16384,
         timeout: float = 300.0,
     ) -> None:
-        self._validate_local(base_url)
+        self._validate_base_url(base_url)
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.num_ctx = num_ctx
         self.timeout = timeout
 
     @staticmethod
-    def _validate_local(base_url: str) -> None:
+    def _validate_base_url(base_url: str) -> None:
         parsed = urlparse(base_url)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError("Ollama-URL braucht http:// oder https://")
         host = (parsed.hostname or "").lower()
-        if host not in {"127.0.0.1", "localhost"}:
-            raise ValueError("Ollama darf nur lokal (127.0.0.1/localhost) angesprochen werden")
-
+        if not is_allowed_ollama_host(host):
+            raise ValueError(
+                "Ollama nur lokal oder im privaten LAN "
+                "(127.0.0.1/localhost/192.168.x/10.x/172.16-31.x/*.local)"
+            )
     def list_models(self) -> list[str]:
         try:
             with httpx.Client(timeout=10.0) as client:
@@ -45,7 +64,7 @@ class OllamaClient:
                 data = response.json()
         except httpx.HTTPError as exc:
             raise OllamaError(
-                "Ollama nicht erreichbar unter http://127.0.0.1:11434 - bitte starten."
+                f"Ollama nicht erreichbar unter {self.base_url} - bitte starten bzw. URL prüfen."
             ) from exc
         return [m.get("name", "") for m in data.get("models", []) if m.get("name")]
 
@@ -90,7 +109,7 @@ class OllamaClient:
             raise self._map_status_error(exc, used_model) from exc
         except httpx.HTTPError as exc:
             raise OllamaError(
-                "Ollama nicht erreichbar unter http://127.0.0.1:11434 - bitte starten."
+                f"Ollama nicht erreichbar unter {self.base_url} - bitte starten bzw. URL prüfen."
             ) from exc
         content = data.get("message", {}).get("content", "{}")
         try:
