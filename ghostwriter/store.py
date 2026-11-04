@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import sqlite3
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -77,53 +78,58 @@ class ProjectStore:
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "projects").mkdir(exist_ok=True)
         self._db_path = self.root / "ghostwriter.sqlite3"
-        self._conn = sqlite3.connect(self._db_path)
+        # FastAPI/uvicorn führt Sync-Handler in Worker-Threads aus.
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
+        self._conn.execute("PRAGMA journal_mode = WAL")
+        self._lock = threading.RLock()
         self._migrate()
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
     def _migrate(self) -> None:
-        self._conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS projects (
-                id TEXT PRIMARY KEY,
-                patient_label TEXT NOT NULL,
-                reference TEXT NOT NULL DEFAULT '',
-                notes TEXT NOT NULL DEFAULT '',
-                draft_html TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS documents (
-                id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                role TEXT NOT NULL,
-                display_name TEXT NOT NULL,
-                stored_path TEXT NOT NULL,
-                extracted_text TEXT NOT NULL DEFAULT '',
-                page_count INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE TABLE IF NOT EXISTS questions (
-                project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                number INTEGER NOT NULL,
-                text TEXT NOT NULL,
-                keyword TEXT NOT NULL DEFAULT '',
-                PRIMARY KEY (project_id, number)
-            );
-            CREATE TABLE IF NOT EXISTS cost_snapshots (
-                project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
-                page_count INTEGER NOT NULL,
-                flat_fee REAL NOT NULL,
-                copy_cost REAL NOT NULL,
-                postage REAL NOT NULL,
-                total REAL NOT NULL
-            );
-            """
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    patient_label TEXT NOT NULL,
+                    reference TEXT NOT NULL DEFAULT '',
+                    notes TEXT NOT NULL DEFAULT '',
+                    draft_html TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS documents (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    role TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    stored_path TEXT NOT NULL,
+                    extracted_text TEXT NOT NULL DEFAULT '',
+                    page_count INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS questions (
+                    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    number INTEGER NOT NULL,
+                    text TEXT NOT NULL,
+                    keyword TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY (project_id, number)
+                );
+                CREATE TABLE IF NOT EXISTS cost_snapshots (
+                    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+                    page_count INTEGER NOT NULL,
+                    flat_fee REAL NOT NULL,
+                    copy_cost REAL NOT NULL,
+                    postage REAL NOT NULL,
+                    total REAL NOT NULL
+                );
+                """
+            )
+            self._conn.commit()
 
     def create_project(self, *, patient_label: str, reference: str) -> Project:
         project_id = uuid.uuid4().hex
@@ -131,14 +137,15 @@ class ProjectStore:
         project_dir = self.root / "projects" / project_id
         project_dir.mkdir(parents=True, exist_ok=True)
         (project_dir / "documents").mkdir(exist_ok=True)
-        self._conn.execute(
-            """
-            INSERT INTO projects (id, patient_label, reference, notes, draft_html, created_at, updated_at)
-            VALUES (?, ?, ?, '', '', ?, ?)
-            """,
-            (project_id, patient_label, reference, now, now),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO projects (id, patient_label, reference, notes, draft_html, created_at, updated_at)
+                VALUES (?, ?, ?, '', '', ?, ?)
+                """,
+                (project_id, patient_label, reference, now, now),
+            )
+            self._conn.commit()
         return Project(
             id=project_id,
             patient_label=patient_label,
@@ -148,11 +155,17 @@ class ProjectStore:
         )
 
     def list_projects(self) -> list[Project]:
-        rows = self._conn.execute("SELECT * FROM projects ORDER BY updated_at DESC").fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM projects ORDER BY updated_at DESC"
+            ).fetchall()
         return [self._project_from_row(row) for row in rows]
 
     def get_project(self, project_id: str) -> Project | None:
-        row = self._conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM projects WHERE id = ?", (project_id,)
+            ).fetchone()
         return self._project_from_row(row) if row else None
 
     def _touch(self, project_id: str) -> None:
@@ -162,18 +175,20 @@ class ProjectStore:
         )
 
     def set_notes(self, project_id: str, notes: str) -> None:
-        self._conn.execute(
-            "UPDATE projects SET notes = ?, updated_at = ? WHERE id = ?",
-            (notes, _utc_now(), project_id),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "UPDATE projects SET notes = ?, updated_at = ? WHERE id = ?",
+                (notes, _utc_now(), project_id),
+            )
+            self._conn.commit()
 
     def set_draft_html(self, project_id: str, html: str) -> None:
-        self._conn.execute(
-            "UPDATE projects SET draft_html = ?, updated_at = ? WHERE id = ?",
-            (html, _utc_now(), project_id),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "UPDATE projects SET draft_html = ?, updated_at = ? WHERE id = ?",
+                (html, _utc_now(), project_id),
+            )
+            self._conn.commit()
 
     def add_document(
         self,
@@ -182,29 +197,30 @@ class ProjectStore:
         role: DocumentRole,
         display_name: str,
     ) -> Document:
-        if role is DocumentRole.ANFRAGE:
-            existing = self._conn.execute(
-                "SELECT id FROM documents WHERE project_id = ? AND role = ?",
-                (project_id, DocumentRole.ANFRAGE.value),
-            ).fetchone()
-            if existing:
-                raise ValueError("Pro Projekt ist nur eine Anfrage erlaubt")
         doc_id = uuid.uuid4().hex
         dest_dir = self.root / "projects" / project_id / "documents"
         dest_dir.mkdir(parents=True, exist_ok=True)
         suffix = source_path.suffix.lower() or ".bin"
         dest = dest_dir / f"{doc_id}{suffix}"
         shutil.copy2(source_path, dest)
-        self._conn.execute(
-            """
-            INSERT INTO documents
-            (id, project_id, role, display_name, stored_path, extracted_text, page_count)
-            VALUES (?, ?, ?, ?, ?, '', 0)
-            """,
-            (doc_id, project_id, role.value, display_name, str(dest)),
-        )
-        self._touch(project_id)
-        self._conn.commit()
+        with self._lock:
+            if role is DocumentRole.ANFRAGE:
+                existing = self._conn.execute(
+                    "SELECT id FROM documents WHERE project_id = ? AND role = ?",
+                    (project_id, DocumentRole.ANFRAGE.value),
+                ).fetchone()
+                if existing:
+                    raise ValueError("Pro Projekt ist nur eine Anfrage erlaubt")
+            self._conn.execute(
+                """
+                INSERT INTO documents
+                (id, project_id, role, display_name, stored_path, extracted_text, page_count)
+                VALUES (?, ?, ?, ?, ?, '', 0)
+                """,
+                (doc_id, project_id, role.value, display_name, str(dest)),
+            )
+            self._touch(project_id)
+            self._conn.commit()
         return Document(
             id=doc_id,
             project_id=project_id,
@@ -214,48 +230,52 @@ class ProjectStore:
         )
 
     def list_documents(self, project_id: str) -> list[Document]:
-        rows = self._conn.execute(
-            "SELECT * FROM documents WHERE project_id = ? ORDER BY rowid",
-            (project_id,),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM documents WHERE project_id = ? ORDER BY rowid",
+                (project_id,),
+            ).fetchall()
         return [self._document_from_row(row) for row in rows]
 
     def update_document_text(self, document_id: str, text: str, page_count: int) -> None:
-        self._conn.execute(
-            """
-            UPDATE documents SET extracted_text = ?, page_count = ?
-            WHERE id = ?
-            """,
-            (text, page_count, document_id),
-        )
-        row = self._conn.execute(
-            "SELECT project_id FROM documents WHERE id = ?", (document_id,)
-        ).fetchone()
-        if row:
-            self._touch(row["project_id"])
-        self._conn.commit()
-
-    def set_questions(self, project_id: str, questions: list[Question]) -> None:
-        self._conn.execute("DELETE FROM questions WHERE project_id = ?", (project_id,))
-        for q in questions:
+        with self._lock:
             self._conn.execute(
                 """
-                INSERT INTO questions (project_id, number, text, keyword)
-                VALUES (?, ?, ?, ?)
+                UPDATE documents SET extracted_text = ?, page_count = ?
+                WHERE id = ?
                 """,
-                (project_id, q.number, q.text, q.keyword),
+                (text, page_count, document_id),
             )
-        self._touch(project_id)
-        self._conn.commit()
+            row = self._conn.execute(
+                "SELECT project_id FROM documents WHERE id = ?", (document_id,)
+            ).fetchone()
+            if row:
+                self._touch(row["project_id"])
+            self._conn.commit()
+
+    def set_questions(self, project_id: str, questions: list[Question]) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM questions WHERE project_id = ?", (project_id,))
+            for q in questions:
+                self._conn.execute(
+                    """
+                    INSERT INTO questions (project_id, number, text, keyword)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (project_id, q.number, q.text, q.keyword),
+                )
+            self._touch(project_id)
+            self._conn.commit()
 
     def get_questions(self, project_id: str) -> list[Question]:
-        rows = self._conn.execute(
-            """
-            SELECT number, text, keyword FROM questions
-            WHERE project_id = ? ORDER BY number
-            """,
-            (project_id,),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT number, text, keyword FROM questions
+                WHERE project_id = ? ORDER BY number
+                """,
+                (project_id,),
+            ).fetchall()
         return [
             Question(number=row["number"], text=row["text"], keyword=row["keyword"]) for row in rows
         ]
@@ -270,27 +290,29 @@ class ProjectStore:
         postage: float,
         total: float,
     ) -> None:
-        self._conn.execute(
-            """
-            INSERT INTO cost_snapshots
-            (project_id, page_count, flat_fee, copy_cost, postage, total)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(project_id) DO UPDATE SET
-                page_count=excluded.page_count,
-                flat_fee=excluded.flat_fee,
-                copy_cost=excluded.copy_cost,
-                postage=excluded.postage,
-                total=excluded.total
-            """,
-            (project_id, page_count, flat_fee, copy_cost, postage, total),
-        )
-        self._touch(project_id)
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO cost_snapshots
+                (project_id, page_count, flat_fee, copy_cost, postage, total)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(project_id) DO UPDATE SET
+                    page_count=excluded.page_count,
+                    flat_fee=excluded.flat_fee,
+                    copy_cost=excluded.copy_cost,
+                    postage=excluded.postage,
+                    total=excluded.total
+                """,
+                (project_id, page_count, flat_fee, copy_cost, postage, total),
+            )
+            self._touch(project_id)
+            self._conn.commit()
 
     def get_cost_snapshot(self, project_id: str) -> CostSnapshot | None:
-        row = self._conn.execute(
-            "SELECT * FROM cost_snapshots WHERE project_id = ?", (project_id,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM cost_snapshots WHERE project_id = ?", (project_id,)
+            ).fetchone()
         if not row:
             return None
         return CostSnapshot(
