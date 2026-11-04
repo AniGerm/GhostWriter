@@ -1,0 +1,12 @@
+---
+description: PySide6/Qt-Regeln für GhostWriter-UI
+globs: ghostwriter/ui/**/*.py,ghostwriter/app.py
+alwaysApply: false
+---
+
+# Qt / UI
+
+- UI-Widgets nur im Haupt-Thread anfassen. Lange Arbeit in `QThread`, `QProcess` oder Subprozess; Ergebnisse per Signal/Slot zurück.
+- Signale und Slots typisieren; keine lambdas mit lebendigen Widget-Referenzen in Worker-Closures.
+- Alle sichtbaren Texte deutsch; Strings zentral halten (Konstanten oder kleine `i18n`-Hilfen), keine hardcodierten Mischsprachen.
+- Keine blockierenden Netzwerk-/OCR-Aufrufe im UI-Thread.

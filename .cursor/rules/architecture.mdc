@@ -1,0 +1,11 @@
+---
+description: Architektur: Logik ohne Qt, testbar und getrennt von UI
+alwaysApply: true
+---
+
+# Architektur
+
+- Module ohne Qt-Import: `ghostwriter/store.py`, `ghostwriter/costs.py`, `ghostwriter/extract.py`, `ghostwriter/inbox.py` (reine Dateilogik), `ghostwriter/llm/*`, `ghostwriter/ocr/*`.
+- UI (`ghostwriter/ui/*`, `ghostwriter/app.py`) darf Logik importieren, nicht umgekehrt.
+- TDD: erst fehlschlagender Test, dann minimaler Code. Unit-Tests mit Fakes für Ollama und PaddleOCR; Integrationstests mit Markern `ollama` und `gpu`.
+- Coverage-Gate: Logik ≥90 %, Gesamt ≥80 %.

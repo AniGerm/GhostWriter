@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+if command -v lpadmin >/dev/null 2>&1; then
+  lpadmin -x GhostWriter 2>/dev/null || true
+fi
+rm -f /usr/lib/cups/backend/ghostwriter
+rm -f /usr/lib/ghostwriter/apply-update.sh
+rm -f /usr/share/polkit-1/actions/com.ghostwriter.apply-update.policy
+rm -f /usr/share/applications/ghostwriter.desktop
+rm -f /etc/xdg/autostart/ghostwriter.desktop

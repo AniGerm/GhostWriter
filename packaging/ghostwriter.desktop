@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=GhostWriter
+Comment=KI-gestützte Befundberichte (GdB/SGB)
+Exec=/opt/ghostwriter/venv/bin/ghostwriter
+Icon=document-print
+Terminal=false
+Categories=Office;MedicalSoftware;
+StartupNotify=true

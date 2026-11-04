@@ -1,0 +1,37 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_ROOT=/opt/ghostwriter
+VENV="${APP_ROOT}/venv"
+SPOOL=/var/spool/ghostwriter
+
+python3 -m venv "${VENV}"
+"${VENV}/bin/pip" install --upgrade pip
+"${VENV}/bin/pip" install "${APP_ROOT}"
+
+# Optional OCR stack (may fail without NVIDIA – non-fatal)
+"${VENV}/bin/pip" install "paddlepaddle-gpu==3.2.1" "paddleocr[doc-parser]>=3.6.0" || true
+
+install -d -m 1777 "${SPOOL}"
+install -d -m 0755 /usr/lib/ghostwriter
+install -m 0755 "${APP_ROOT}/packaging/cups/ghostwriter" /usr/lib/cups/backend/ghostwriter
+install -m 0755 "${APP_ROOT}/packaging/apply-update.sh" /usr/lib/ghostwriter/apply-update.sh
+install -m 0644 "${APP_ROOT}/packaging/polkit/com.ghostwriter.apply-update.policy" \
+  /usr/share/polkit-1/actions/com.ghostwriter.apply-update.policy
+
+install -m 0644 "${APP_ROOT}/packaging/cups/GhostWriter.ppd" /usr/share/ppd/ghostwriter/GhostWriter.ppd || {
+  mkdir -p /usr/share/ppd/ghostwriter
+  install -m 0644 "${APP_ROOT}/packaging/cups/GhostWriter.ppd" /usr/share/ppd/ghostwriter/GhostWriter.ppd
+}
+
+if command -v lpadmin >/dev/null 2>&1; then
+  lpadmin -p GhostWriter -E -v ghostwriter:/ -P /usr/share/ppd/ghostwriter/GhostWriter.ppd \
+    -D "GhostWriter virtuell" || true
+fi
+
+install -m 0644 "${APP_ROOT}/packaging/ghostwriter.desktop" /usr/share/applications/ghostwriter.desktop
+install -m 0644 "${APP_ROOT}/packaging/ghostwriter-autostart.desktop" /etc/xdg/autostart/ghostwriter.desktop
+
+# Depends hint: policykit
+ldconfig || true
+echo "GhostWriter installiert. Start: ghostwriter"

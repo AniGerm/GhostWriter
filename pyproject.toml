@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghostwriter"
+version = "0.1.0"
+description = "KI-gestützte ärztliche Befundberichte (GdB/SGB) – lokal mit Ollama"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "GhostWriter" }]
+dependencies = [
+  "PySide6>=6.6",
+  "pypdf>=5.0",
+  "pypdfium2>=4.30",
+  "Pillow>=10.0",
+  "opencv-python-headless>=4.8",
+  "numpy>=1.26",
+  "httpx>=0.27",
+  "pyenchant>=3.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-qt>=4.4",
+  "pytest-cov>=5.0",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "types-Pillow>=10.0",
+  "pre-commit>=3.8",
+  "pip-audit>=2.7",
+]
+ocr = [
+  "paddlepaddle-gpu==3.2.1",
+  "paddleocr[doc-parser]>=3.6.0",
+]
+
+[project.scripts]
+ghostwriter = "ghostwriter.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ghostwriter*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["ghostwriter", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+packages = ["ghostwriter"]
+exclude = ["packaging/", "tests/"]
+[[tool.mypy.overrides]]
+module = ["pypdfium2.*", "paddleocr.*", "paddle.*", "enchant.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--cov=ghostwriter",
+  "--cov-report=term-missing",
+  "--cov-fail-under=80",
+]
+markers = [
+  "ollama: needs local Ollama",
+  "gpu: needs PaddleOCR GPU",
+  "qt: Qt UI test",
+]
+qt_api = "pyside6"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+branch = true
+source = ["ghostwriter"]
+omit = [
+  "ghostwriter/ocr/engine.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+show_missing = true

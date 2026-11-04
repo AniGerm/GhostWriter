@@ -1,0 +1,12 @@
+---
+description: Datenschutz und lokale Verarbeitung für GhostWriter (Patientendaten)
+alwaysApply: true
+---
+
+# Datenschutz
+
+- Keine Patientendaten (Namen, Aktenzeichen, Diagnosen, Dokumenttexte) in Logs, Exception-Messages, Telemetrie, Crash-Reports oder Commit-Messages.
+- Testdaten und Fixtures sind ausschließlich synthetisch (fiktive Namen, erfundene Diagnosen).
+- Ollama nur über `http://127.0.0.1:11434` ansprechen; kein Remote-LLM, kein Cloud-OCR.
+- Dateien unter `~/.local/share/ghostwriter/` und Spool-PDFs bleiben lokal; keine Uploads.
+- Beim Debuggen Inhalte redigieren (`[REDACTED]`), nie Rohtext aus Anfragen/Befunden ausgeben.

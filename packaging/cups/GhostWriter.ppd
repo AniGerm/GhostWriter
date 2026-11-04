@@ -1,0 +1,35 @@
+*PPD-Adobe: "4.3"
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "GHOSTWRITER.PPD"
+*Manufacturer: "GhostWriter"
+*Product: "(GhostWriter)"
+*ModelName: "GhostWriter Virtual"
+*ShortNickName: "GhostWriter"
+*NickName: "GhostWriter Virtual PDF"
+*PSVersion: "(3010.000) 0"
+*LanguageLevel: "3"
+*ColorDevice: True
+*DefaultColorSpace: RGB
+*FileSystem: False
+*Throughput: "1"
+*LandscapeOrientation: Plus90
+*TTRasterizer: Type42
+*cupsVersion: 1.4
+*cupsManualCopies: True
+*cupsFilter: "application/vnd.cups-pdf 0 -"
+*cupsFilter2: "application/pdf application/vnd.cups-pdf 0 -"
+*OpenUI *PageSize/Media Size: PickOne
+*DefaultPageSize: A4
+*PageSize A4/A4: "<</PageSize[595 842]/>>setpagedevice"
+*CloseUI: *PageSize
+*OpenUI *PageRegion: PickOne
+*DefaultPageRegion: A4
+*PageRegion A4/A4: "<</PageSize[595 842]/>>setpagedevice"
+*CloseUI: *PageRegion
+*DefaultImageableArea: A4
+*ImageableArea A4: "0 0 595 842"
+*DefaultPaperDimension: A4
+*PaperDimension A4: "595 842"
