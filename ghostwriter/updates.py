@@ -33,6 +33,7 @@ _state: dict[str, Any] = {
     "download_path": None,
     "download_percent": 0,
     "error": None,
+    "message": None,
     "checked_at": None,
     "repo": DEFAULT_GITHUB_REPO,
 }
@@ -242,24 +243,39 @@ def install_update() -> dict[str, Any]:
     deb_path = str(path)
     if not DEB_NAME_RE.match(Path(deb_path).name):
         return _set_state(phase="error", error="Ungültiger Paketname")
-    _set_state(phase="installing", error=None)
+    restart_msg = (
+        "Die App wird jetzt geschlossen. Anschließend Installation und automatischer Neustart."
+    )
+    _set_state(phase="installing", error=None, message=restart_msg)
     log_path = _cache_dir() / "install-update.log"
     helper = APPLY_UPDATE if APPLY_UPDATE.is_file() else None
+    # DISPLAY/XAUTHORITY an pkexec-Umgebung durchreichen (für Neustart der GUI)
+    display = os.environ.get("DISPLAY", ":0")
+    xauth = os.environ.get("XAUTHORITY", "")
+    env_export = (
+        f"export DISPLAY={_shell_quote(display)}\n"
+        f"export XAUTHORITY={_shell_quote(xauth)}\n"
+    )
     if helper:
         script = f"""#!/bin/bash
 trap '' HUP
 exec >>{_shell_quote(str(log_path))} 2>&1
 echo "==== $(date -Is) ghostwriter update ===="
-pkexec {_shell_quote(str(helper))} {_shell_quote(deb_path)}
+{env_export}pkexec {_shell_quote(str(helper))} {_shell_quote(deb_path)}
 """
     else:
         script = f"""#!/bin/bash
 trap '' HUP
 exec >>{_shell_quote(str(log_path))} 2>&1
 echo "==== $(date -Is) ghostwriter update (fallback) ===="
-export DEBIAN_FRONTEND=noninteractive
+{env_export}export DEBIAN_FRONTEND=noninteractive
 pkexec apt-get install -y --reinstall {_shell_quote(deb_path)} \\
   || pkexec dpkg -i {_shell_quote(deb_path)}
+# Fallback ohne apply-update.sh: App neu starten
+pkill -f 'uvicorn.*ghostwriter' 2>/dev/null || true
+pkill -f '/opt/ghostwriter/desktop/main.cjs' 2>/dev/null || true
+sleep 1
+nohup /usr/bin/ghostwriter >/tmp/ghostwriter-relaunch.log 2>&1 &
 """
     script_path = _cache_dir() / "run-install.sh"
     script_path.write_text(script, encoding="utf-8")
@@ -280,4 +296,4 @@ pkexec apt-get install -y --reinstall {_shell_quote(deb_path)} \\
             start_new_session=True,
             env=os.environ.copy(),
         )
-    return _set_state(phase="installing", error=None)
+    return _set_state(phase="restarting", error=None, message=restart_msg)

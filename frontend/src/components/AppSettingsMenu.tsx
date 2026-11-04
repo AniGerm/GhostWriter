@@ -31,8 +31,10 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     available?: boolean;
     download_percent?: number;
     error?: string | null;
+    message?: string | null;
   } | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateOverlay, setUpdateOverlay] = useState<string | null>(null);
 
   useEffect(() => {
     if (!settings) return;
@@ -45,7 +47,7 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
   }, [settings]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || updateOverlay) return;
     const onPointerDown = (event: MouseEvent | PointerEvent) => {
       const target = event.target as Node | null;
       if (wrapRef.current && target && !wrapRef.current.contains(target)) {
@@ -67,7 +69,7 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, updateOverlay]);
 
   useEffect(() => {
     if (!open) return;
@@ -124,26 +126,54 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     }
   }
 
+  async function closeAppAfterUpdate() {
+    await new Promise((r) => window.setTimeout(r, 1800));
+    if (window.ghostwriterDesktop?.quitApp) {
+      try {
+        await window.ghostwriterDesktop.quitApp();
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    window.close();
+  }
+
   async function downloadAndInstallUpdate() {
     setUpdateBusy(true);
     setError(null);
+    setUpdateOverlay(
+      "Update wird vorbereitet …\nDie App schließt sich gleich, installiert das Paket und startet danach neu.",
+    );
     try {
+      setUpdateOverlay("Update wird heruntergeladen …");
       let status = await api.downloadUpdate();
       setUpdateInfo(status);
+      if (status.error) {
+        setError(String(status.error));
+        setUpdateOverlay(null);
+        return;
+      }
+      setUpdateOverlay(
+        "Installation startet.\n\nDie App wird jetzt geschlossen.\nDanach: Paket installieren → GhostWriter startet automatisch neu.\n\nBitte Bestätigung im Systemdialog abwarten.",
+      );
       status = await api.installUpdate();
       setUpdateInfo(status);
       if (status.error) {
         setError(String(status.error));
+        setUpdateOverlay(null);
+        return;
       }
+      setUpdateOverlay(
+        status.message ||
+          "Die App wird jetzt geschlossen.\nInstallation läuft – GhostWriter startet anschließend neu.",
+      );
+      void closeAppAfterUpdate();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update fehlgeschlagen");
+      setUpdateOverlay(null);
     } finally {
       setUpdateBusy(false);
-      try {
-        setUpdateInfo(await api.updateStatus());
-      } catch {
-        /* ignore */
-      }
     }
   }
 
@@ -221,119 +251,128 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
       </button>
       {open && (
         <div className="app-settings-popover" role="dialog" aria-label="App-Einstellungen">
-          <h2>Einstellungen</h2>
-          <p className="hint">
-            Ollama darf lokal oder im Praxis-LAN liegen (z. B. Server-IP). Öffentliche
-            Cloud-URLs sind gesperrt.
-          </p>
-          <div className="field">
-            <label htmlFor="ollama-url">Ollama-URL</label>
-            <input
-              id="ollama-url"
-              value={ollamaUrl}
-              onChange={(e) => setOllamaUrl(e.target.value)}
-              placeholder="http://127.0.0.1:11434"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="ollama-model">Ollama-Modell</label>
-            <select
-              id="ollama-model"
-              value={ollamaModel}
-              onChange={(e) => setOllamaModel(e.target.value)}
-              disabled={modelOptions.length === 0}
-            >
-              {modelOptions.length === 0 ? (
-                <option value="">Keine Modelle gefunden</option>
-              ) : (
-                modelOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))
+          <div className="app-settings-grid">
+            <section>
+              <h2>Verbindung</h2>
+              <div className="field">
+                <label htmlFor="ollama-url">Ollama-URL</label>
+                <input
+                  id="ollama-url"
+                  value={ollamaUrl}
+                  onChange={(e) => setOllamaUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:11434"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="ollama-model">Ollama-Modell</label>
+                <select
+                  id="ollama-model"
+                  value={ollamaModel}
+                  onChange={(e) => setOllamaModel(e.target.value)}
+                  disabled={modelOptions.length === 0}
+                >
+                  {modelOptions.length === 0 ? (
+                    <option value="">Keine Modelle gefunden</option>
+                  ) : (
+                    modelOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {modelsError && <p className="hint">{modelsError}</p>}
+              </div>
+              <div className="field">
+                <label htmlFor="default-printer">Standarddrucker</label>
+                <select
+                  id="default-printer"
+                  value={printer}
+                  onChange={(e) => setPrinter(e.target.value)}
+                >
+                  <option value="">Systemstandard</option>
+                  {printers.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.name}
+                      {p.is_default ? " (System)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            <section>
+              <h2>Briefabschluss</h2>
+              <div className="field">
+                <label htmlFor="signature-greeting">Grußformel</label>
+                <input
+                  id="signature-greeting"
+                  value={greeting}
+                  onChange={(e) => setGreeting(e.target.value)}
+                  placeholder="Mit freundlichen Grüßen"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="signature-doctor">Arzt / Absender</label>
+                <textarea
+                  id="signature-doctor"
+                  rows={3}
+                  value={doctor}
+                  onChange={(e) => setDoctor(e.target.value)}
+                  placeholder={"Dr. med. …\nFacharzt für …"}
+                />
+              </div>
+              <div className="actions" style={{ marginTop: 8 }}>
+                <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
+                  Speichern
+                </button>
+                {saved && <span className="hint">Gespeichert.</span>}
+              </div>
+            </section>
+
+            <section className="app-settings-updates">
+              <h2>App-Updates</h2>
+              <p className="hint">
+                Aktuell: {updateInfo?.current_version || "–"}
+                {updateInfo?.latest_version
+                  ? ` · Neueste: ${updateInfo.latest_version}`
+                  : ""}
+              </p>
+              {updateInfo?.available && (
+                <p className="hint">Update verfügbar.</p>
               )}
-            </select>
-            {modelsError && <p className="hint">{modelsError}</p>}
+              {typeof updateInfo?.download_percent === "number" &&
+                updateInfo.phase === "downloading" && (
+                  <p className="hint">Download: {updateInfo.download_percent} %</p>
+                )}
+              <div className="actions" style={{ marginTop: 8 }}>
+                <button
+                  className="btn btn-ghost"
+                  disabled={updateBusy}
+                  onClick={() => void checkForUpdates()}
+                >
+                  Auf Updates prüfen
+                </button>
+                <button
+                  className="btn btn-primary"
+                  disabled={updateBusy || !updateInfo?.available}
+                  onClick={() => void downloadAndInstallUpdate()}
+                >
+                  Download & installieren
+                </button>
+              </div>
+              {updateInfo?.error && <p className="error">{updateInfo.error}</p>}
+              {error && <p className="error">{error}</p>}
+            </section>
           </div>
-          <div className="field">
-            <label htmlFor="default-printer">Standarddrucker</label>
-            <select
-              id="default-printer"
-              value={printer}
-              onChange={(e) => setPrinter(e.target.value)}
-            >
-              <option value="">Systemstandard</option>
-              {printers.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                  {p.is_default ? " (System)" : ""}
-                </option>
-              ))}
-            </select>
+        </div>
+      )}
+      {updateOverlay && (
+        <div className="update-overlay" role="alertdialog" aria-live="assertive">
+          <div className="update-overlay-card">
+            <h2>Update</h2>
+            <p style={{ whiteSpace: "pre-line" }}>{updateOverlay}</p>
           </div>
-
-          <div className="settings-divider" />
-          <h2>Briefabschluss</h2>
-          <div className="field">
-            <label htmlFor="signature-greeting">Grußformel</label>
-            <input
-              id="signature-greeting"
-              value={greeting}
-              onChange={(e) => setGreeting(e.target.value)}
-              placeholder="Mit freundlichen Grüßen"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="signature-doctor">Arzt / Absender</label>
-            <textarea
-              id="signature-doctor"
-              rows={3}
-              value={doctor}
-              onChange={(e) => setDoctor(e.target.value)}
-              placeholder={"Dr. med. …\nFacharzt für …"}
-            />
-          </div>
-
-          <div className="actions" style={{ marginTop: 12 }}>
-            <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
-              Speichern
-            </button>
-          </div>
-          {saved && <p className="hint">Gespeichert.</p>}
-
-          <div className="settings-divider" />
-          <h2>App-Updates</h2>
-          <p className="hint">
-            Aktuell: {updateInfo?.current_version || "–"}
-            {updateInfo?.latest_version
-              ? ` · Neueste: ${updateInfo.latest_version}`
-              : ""}
-          </p>
-          {updateInfo?.available && (
-            <p className="hint">Update verfügbar – Download & Installation benötigt Bestätigung.</p>
-          )}
-          {typeof updateInfo?.download_percent === "number" &&
-            updateInfo.phase === "downloading" && (
-              <p className="hint">Download: {updateInfo.download_percent} %</p>
-            )}
-          <div className="actions" style={{ marginTop: 10 }}>
-            <button
-              className="btn btn-ghost"
-              disabled={updateBusy}
-              onClick={() => void checkForUpdates()}
-            >
-              Auf Updates prüfen
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={updateBusy || !updateInfo?.available}
-              onClick={() => void downloadAndInstallUpdate()}
-            >
-              Download & installieren
-            </button>
-          </div>
-          {updateInfo?.error && <p className="error">{updateInfo.error}</p>}
-          {error && <p className="error">{error}</p>}
         </div>
       )}
     </div>

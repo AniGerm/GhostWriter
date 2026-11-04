@@ -8,6 +8,7 @@ export type DesktopPrinter = {
 export type GhostwriterDesktop = {
   listPrinters: () => Promise<DesktopPrinter[]>;
   printHtml: (html: string, deviceName?: string) => Promise<{ ok: boolean }>;
+  quitApp?: () => Promise<{ ok: boolean }>;
 };
 
 declare global {

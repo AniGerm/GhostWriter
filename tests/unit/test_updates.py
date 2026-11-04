@@ -134,5 +134,6 @@ def test_install_update_spawns_helper(
     helper.write_text("#!/bin/bash\n")
     monkeypatch.setattr(updates, "APPLY_UPDATE", helper)
     status = updates.install_update()
-    assert status["phase"] == "installing"
+    assert status["phase"] == "restarting"
+    assert "geschlossen" in str(status.get("message") or "")
     assert spawned

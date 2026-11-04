@@ -68,6 +68,11 @@ ipcMain.handle("printers:list", async (event) => {
   }
 });
 
+ipcMain.handle("app:quit", async () => {
+  app.quit();
+  return { ok: true };
+});
+
 ipcMain.handle("print:html", async (event, payload) => {
   const html = String((payload && payload.html) || "");
   const deviceName = String((payload && payload.deviceName) || "");
