@@ -11,3 +11,14 @@ rm -f /usr/share/polkit-1/actions/com.ghostwriter.apply-update.policy
 rm -f /usr/share/applications/ghostwriter.desktop
 rm -f /etc/xdg/autostart/ghostwriter.desktop
 rm -rf /usr/share/ppd/ghostwriter
+rm -f /usr/share/pixmaps/ghostwriter.png
+rm -f /usr/share/icons/hicolor/scalable/apps/ghostwriter.svg
+for size in 16 24 32 48 64 128 256 512; do
+  rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/ghostwriter.png"
+done
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+fi

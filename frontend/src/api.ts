@@ -149,4 +149,8 @@ export const api = {
       default_printer: string;
       system_default: string;
     }>("/api/printers"),
+  listOllamaModels: (base_url?: string) => {
+    const query = base_url ? `?base_url=${encodeURIComponent(base_url)}` : "";
+    return req<{ models: string[]; base_url: string }>(`/api/ollama/models${query}`);
+  },
 };

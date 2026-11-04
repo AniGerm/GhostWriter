@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type AppSettings } from "../api";
 import { IconGear } from "./editorIcons";
 
@@ -10,12 +10,15 @@ type Props = {
 };
 
 export function AppSettingsMenu({ settings, onSaved }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [ollamaUrl, setOllamaUrl] = useState("http://127.0.0.1:11434");
   const [ollamaModel, setOllamaModel] = useState("");
+  const [models, setModels] = useState<string[]>([]);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const [printer, setPrinter] = useState("");
   const [printers, setPrinters] = useState<PrinterOption[]>([]);
 
@@ -25,6 +28,31 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     setOllamaModel(settings.ollama_model || "");
     setPrinter(settings.default_printer || "");
   }, [settings]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent | PointerEvent) => {
+      const target = event.target as Node | null;
+      if (wrapRef.current && target && !wrapRef.current.contains(target)) {
+        setOpen(false);
+        setSaved(false);
+        setError(null);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setSaved(false);
+        setError(null);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -62,6 +90,37 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setModelsError(null);
+        try {
+          const result = await api.listOllamaModels(ollamaUrl.trim());
+          if (cancelled) return;
+          const names = result.models ?? [];
+          setModels(names);
+          setOllamaModel((current) => {
+            if (current && names.includes(current)) return current;
+            if (current) return current;
+            return names[0] || "";
+          });
+        } catch (e) {
+          if (cancelled) return;
+          setModels([]);
+          setModelsError(
+            e instanceof Error ? e.message : "Modelle konnten nicht geladen werden",
+          );
+        }
+      })();
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, ollamaUrl]);
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -81,8 +140,13 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     }
   }
 
+  const modelOptions = models.slice();
+  if (ollamaModel && !modelOptions.includes(ollamaModel)) {
+    modelOptions.unshift(ollamaModel);
+  }
+
   return (
-    <div className="app-settings-wrap">
+    <div className="app-settings-wrap" ref={wrapRef}>
       <button
         type="button"
         className="icon-btn"
@@ -115,12 +179,23 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
           </div>
           <div className="field">
             <label htmlFor="ollama-model">Ollama-Modell</label>
-            <input
+            <select
               id="ollama-model"
               value={ollamaModel}
               onChange={(e) => setOllamaModel(e.target.value)}
-              placeholder="qwen3:14b-q8_0"
-            />
+              disabled={modelOptions.length === 0}
+            >
+              {modelOptions.length === 0 ? (
+                <option value="">Keine Modelle gefunden</option>
+              ) : (
+                modelOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))
+              )}
+            </select>
+            {modelsError && <p className="hint">{modelsError}</p>}
           </div>
           <div className="field">
             <label htmlFor="default-printer">Standarddrucker</label>

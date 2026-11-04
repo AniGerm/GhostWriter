@@ -338,8 +338,11 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <strong>GhostWriter</strong>
-          <span>Lokale GdB-Berichte{version ? ` · v${version}` : ""}</span>
+          <img className="brand-mark" src="/favicon.svg" alt="" width={36} height={36} />
+          <div>
+            <strong>GhostWriter</strong>
+            <span>Lokale GdB-Berichte{version ? ` · v${version}` : ""}</span>
+          </div>
         </div>
         <div className="topbar-right">
           <nav className="steps" aria-label="Ablauf">

@@ -9,6 +9,7 @@ const DEV = !!process.env.GHOSTWRITER_DEV;
 const START_URL = DEV ? "http://127.0.0.1:5174" : "http://127.0.0.1:8787";
 
 function createWindow() {
+  const iconPath = path.join(__dirname, "..", "packaging", "icons", "256x256", "ghostwriter.png");
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -16,6 +17,7 @@ function createWindow() {
     minHeight: 680,
     backgroundColor: "#eceae4",
     title: "GhostWriter",
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,

@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=GhostWriter Tray
-Comment=GhostWriter im Hintergrund (Drucker-Inbox)
+Name=GhostWriter
+Comment=GhostWriter im Hintergrund starten
 Exec=/opt/ghostwriter/venv/bin/ghostwriter-web
-Icon=document-print
+Icon=ghostwriter
 Terminal=false
 X-GNOME-Autostart-enabled=true
+NoDisplay=true

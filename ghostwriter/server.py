@@ -478,6 +478,25 @@ def get_printers() -> dict[str, Any]:
     }
 
 
+@app.get("/api/ollama/models")
+def get_ollama_models(base_url: str | None = None) -> dict[str, Any]:
+    settings = load_settings(SETTINGS_PATH)
+    url = (base_url or settings.ollama_base_url).strip()
+    host = (urlparse(url).hostname or "").lower()
+    if not is_allowed_ollama_host(host):
+        raise HTTPException(
+            400,
+            "Ollama-URL nur lokal oder privates LAN "
+            "(127.0.0.1/localhost/192.168.x/10.x/*.local)",
+        )
+    try:
+        client = OllamaClient(base_url=url, model=settings.ollama_model)
+        models = client.list_models()
+    except (OllamaError, ValueError) as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {"base_url": url.rstrip("/"), "models": models}
+
+
 @app.get("/api/updates")
 def update_status() -> dict[str, Any]:
     return updates.get_status()

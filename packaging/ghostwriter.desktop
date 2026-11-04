@@ -1,9 +1,13 @@
 [Desktop Entry]
 Type=Application
+Version=1.0
 Name=GhostWriter
-Comment=KI-gestützte Befundberichte (GdB/SGB)
+GenericName=Ärztliche Befundberichte
+Comment=KI-gestützte Befundberichte für GdB/SGB – lokal mit Ollama
 Exec=/opt/ghostwriter/venv/bin/ghostwriter-web
-Icon=document-print
+Icon=ghostwriter
 Terminal=false
-Categories=Office;MedicalSoftware;
+Categories=Office;MedicalSoftware;Utility;
+Keywords=GhostWriter;Arzt;Befund;GdB;SGB;Landratsamt;OCR;Ollama;Bericht;Drucker;
 StartupNotify=true
+StartupWMClass=GhostWriter

@@ -134,6 +134,24 @@ def test_document_download(api: TestClient, tmp_path: Path) -> None:
     assert response.content.startswith(b"%PDF")
 
 
+def test_ollama_models_endpoint(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import ghostwriter.server as server
+
+    class FakeClient:
+        def __init__(self, **k: object) -> None:
+            pass
+
+        def list_models(self) -> list[str]:
+            return ["qwen3:14b-q8_0", "gemma3:12b"]
+
+    monkeypatch.setattr(server, "OllamaClient", FakeClient)
+    response = api.get("/api/ollama/models", params={"base_url": "http://127.0.0.1:11434"})
+    assert response.status_code == 200
+    assert response.json()["models"] == ["qwen3:14b-q8_0", "gemma3:12b"]
+
+
 def test_settings_rejects_public_ollama_url(api: TestClient) -> None:
     response = api.put(
         "/api/settings",

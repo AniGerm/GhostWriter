@@ -25,13 +25,31 @@ if ! /usr/lib/ghostwriter/install-printer.sh \
   echo "Bitte CUPS starten und erneut ausführen:" >&2
   echo "  sudo systemctl start cups" >&2
   echo "  sudo /usr/lib/ghostwriter/install-printer.sh" >&2
-  # Installation nicht komplett abbrechen (App bleibt nutzbar mit manuellem Upload),
-  # aber klar fehlschlagen im Exit-Code der Printer-Stufe dokumentieren.
   exit 1
 fi
 
+# App-Icon für Ubuntu/GNOME-Suche (hicolor + pixmaps)
+install -d -m 0755 /usr/share/icons/hicolor/scalable/apps
+install -m 0644 "${APP_ROOT}/packaging/icons/ghostwriter.svg" \
+  /usr/share/icons/hicolor/scalable/apps/ghostwriter.svg
+for size in 16 24 32 48 64 128 256 512; do
+  install -d -m 0755 "/usr/share/icons/hicolor/${size}x${size}/apps"
+  install -m 0644 "${APP_ROOT}/packaging/icons/${size}x${size}/ghostwriter.png" \
+    "/usr/share/icons/hicolor/${size}x${size}/apps/ghostwriter.png"
+done
+install -d -m 0755 /usr/share/pixmaps
+install -m 0644 "${APP_ROOT}/packaging/icons/256x256/ghostwriter.png" \
+  /usr/share/pixmaps/ghostwriter.png
+
 install -m 0644 "${APP_ROOT}/packaging/ghostwriter.desktop" /usr/share/applications/ghostwriter.desktop
 install -m 0644 "${APP_ROOT}/packaging/ghostwriter-autostart.desktop" /etc/xdg/autostart/ghostwriter.desktop
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+fi
 
 ldconfig || true
 echo "GhostWriter installiert. Start: ghostwriter-web  | Drucker: GhostWriter"
