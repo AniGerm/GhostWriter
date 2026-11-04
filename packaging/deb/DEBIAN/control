@@ -3,7 +3,7 @@ Version: __VERSION__
 Section: utils
 Priority: optional
 Architecture: amd64
-Depends: python3 (>= 3.12), python3-venv, python3-pip, cups, cups-client, hunspell-de-de, libenchant-2-2, policykit-1, pkexec
+Depends: python3 (>= 3.12), python3-venv, python3-pip, cups, cups-client, hunspell-de-de | hunspell-de-de-frami, libenchant-2-2, policykit-1, pkexec
 Maintainer: GhostWriter <local@localhost>
 Description: GhostWriter – KI-gestützte GdB-Befundberichte (lokal)
  Desktop-App mit virtuellem CUPS-Drucker, OCR und lokaler Ollama-Pipeline

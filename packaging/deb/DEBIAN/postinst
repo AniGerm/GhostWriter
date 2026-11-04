@@ -19,10 +19,8 @@ install -m 0755 "${APP_ROOT}/packaging/apply-update.sh" /usr/lib/ghostwriter/app
 install -m 0644 "${APP_ROOT}/packaging/polkit/com.ghostwriter.apply-update.policy" \
   /usr/share/polkit-1/actions/com.ghostwriter.apply-update.policy
 
-install -m 0644 "${APP_ROOT}/packaging/cups/GhostWriter.ppd" /usr/share/ppd/ghostwriter/GhostWriter.ppd || {
-  mkdir -p /usr/share/ppd/ghostwriter
-  install -m 0644 "${APP_ROOT}/packaging/cups/GhostWriter.ppd" /usr/share/ppd/ghostwriter/GhostWriter.ppd
-}
+mkdir -p /usr/share/ppd/ghostwriter
+install -m 0644 "${APP_ROOT}/packaging/cups/GhostWriter.ppd" /usr/share/ppd/ghostwriter/GhostWriter.ppd
 
 if command -v lpadmin >/dev/null 2>&1; then
   lpadmin -p GhostWriter -E -v ghostwriter:/ -P /usr/share/ppd/ghostwriter/GhostWriter.ppd \
