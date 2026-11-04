@@ -2,7 +2,7 @@
 Type=Application
 Name=GhostWriter
 Comment=GhostWriter im Hintergrund starten
-Exec=/opt/ghostwriter/venv/bin/ghostwriter-web
+Exec=/usr/bin/ghostwriter
 Icon=ghostwriter
 Terminal=false
 X-GNOME-Autostart-enabled=true

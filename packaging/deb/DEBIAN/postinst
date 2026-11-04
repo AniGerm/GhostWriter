@@ -41,6 +41,18 @@ install -d -m 0755 /usr/share/pixmaps
 install -m 0644 "${APP_ROOT}/packaging/icons/256x256/ghostwriter.png" \
   /usr/share/pixmaps/ghostwriter.png
 
+install -m 0755 "${APP_ROOT}/scripts/ghostwriter-launch.sh" /usr/bin/ghostwriter
+ln -sfn /usr/bin/ghostwriter /usr/local/bin/ghostwriter 2>/dev/null || true
+
+# Leichte Electron-Runtime für Dock-Fenster mit App-Icon (best effort)
+if command -v npm >/dev/null 2>&1; then
+  (
+    cd "${APP_ROOT}"
+    npm init -y >/dev/null 2>&1 || true
+    npm install --omit=dev electron@37 >/dev/null 2>&1 || true
+  ) || true
+fi
+
 install -m 0644 "${APP_ROOT}/packaging/ghostwriter.desktop" /usr/share/applications/ghostwriter.desktop
 install -m 0644 "${APP_ROOT}/packaging/ghostwriter-autostart.desktop" /etc/xdg/autostart/ghostwriter.desktop
 

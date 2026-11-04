@@ -8,8 +8,29 @@ const path = require("path");
 const DEV = !!process.env.GHOSTWRITER_DEV;
 const START_URL = DEV ? "http://127.0.0.1:5174" : "http://127.0.0.1:8787";
 
+function resolveIcon() {
+  const candidates = [
+    path.join(__dirname, "..", "packaging", "icons", "256x256", "ghostwriter.png"),
+    "/usr/share/icons/hicolor/256x256/apps/ghostwriter.png",
+    "/usr/share/pixmaps/ghostwriter.png",
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (require("fs").existsSync(candidate)) return candidate;
+    } catch {
+      /* ignore */
+    }
+  }
+  return undefined;
+}
+
+app.setName("GhostWriter");
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("class", "GhostWriter");
+}
+
 function createWindow() {
-  const iconPath = path.join(__dirname, "..", "packaging", "icons", "256x256", "ghostwriter.png");
+  const iconPath = resolveIcon();
   const win = new BrowserWindow({
     width: 1280,
     height: 860,

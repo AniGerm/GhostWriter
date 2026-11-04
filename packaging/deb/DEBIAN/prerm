@@ -10,6 +10,9 @@ rm -f /usr/lib/ghostwriter/install-printer.sh
 rm -f /usr/share/polkit-1/actions/com.ghostwriter.apply-update.policy
 rm -f /usr/share/applications/ghostwriter.desktop
 rm -f /etc/xdg/autostart/ghostwriter.desktop
+rm -f /usr/bin/ghostwriter
+rm -f /usr/local/bin/ghostwriter
+
 rm -rf /usr/share/ppd/ghostwriter
 rm -f /usr/share/pixmaps/ghostwriter.png
 rm -f /usr/share/icons/hicolor/scalable/apps/ghostwriter.svg
