@@ -29,7 +29,11 @@ from ghostwriter.inbox import (
 from ghostwriter.llm.client import OllamaClient, OllamaError, is_allowed_ollama_host
 from ghostwriter.llm.pipeline import ReportPipeline
 from ghostwriter.paths import default_data_root, default_spool_dir
-from ghostwriter.preview import page_preview_path, preview_cache_dir
+from ghostwriter.preview import (
+    ensure_preview_pages,
+    page_preview_path,
+    preview_cache_dir,
+)
 from ghostwriter.printers import list_cups_printers
 from ghostwriter.settings import load_settings, save_settings
 from ghostwriter.store import Document, DocumentRole, ProjectStore, Question
@@ -404,7 +408,33 @@ def download_document(project_id: str, document_id: str) -> FileResponse:
     if not path.is_file():
         raise HTTPException(404, "Datei fehlt")
     media = "application/pdf" if path.suffix.lower() == ".pdf" else "application/octet-stream"
-    return FileResponse(path, media_type=media, filename=doc.display_name)
+    return FileResponse(
+        path,
+        media_type=media,
+        filename=doc.display_name,
+        content_disposition_type="inline",
+    )
+
+
+@app.get("/api/projects/{project_id}/documents/{document_id}/preview")
+def document_preview_meta(project_id: str, document_id: str) -> dict[str, Any]:
+    """Seitenzahl für den internen Dokument-Viewer."""
+    if STORE.get_project(project_id) is None:
+        raise HTTPException(404, "Projekt nicht gefunden")
+    docs = STORE.list_documents(project_id)
+    doc = next((d for d in docs if d.id == document_id), None)
+    if doc is None:
+        raise HTTPException(404, "Dokument nicht gefunden")
+    path = Path(doc.stored_path)
+    if not path.is_file():
+        raise HTTPException(404, "Datei fehlt")
+    try:
+        pages = ensure_preview_pages(path, preview_cache_dir(DATA_ROOT, document_id))
+    except ValueError as exc:
+        raise HTTPException(400, "Vorschau nicht möglich") from exc
+    except Exception as exc:
+        raise HTTPException(500, "Vorschau fehlgeschlagen") from exc
+    return {"page_count": len(pages), "display_name": doc.display_name}
 
 
 @app.get("/api/projects/{project_id}/documents/{document_id}/pages/{page_number}")

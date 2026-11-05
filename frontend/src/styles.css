@@ -623,6 +623,80 @@ button {
   border: 0;
 }
 
+.doc-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 20, 25, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.doc-viewer-dialog {
+  width: min(920px, 100%);
+  height: min(92vh, 1100px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.doc-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-viewer-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-viewer-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 18px 24px;
+  display: grid;
+  gap: 18px;
+  background: var(--surface-2);
+}
+
+.doc-viewer-page {
+  margin: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.08);
+}
+
+.doc-viewer-page figcaption {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.doc-viewer-page img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+}
+
 .regen-overlay {
   position: fixed;
   inset: 0;

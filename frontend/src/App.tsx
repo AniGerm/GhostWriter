@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type AppSettings, type Job, type Project, type ProjectSummary } from "./api";
 import { AppSidebar } from "./components/AppSidebar";
 import { DocumentListItem } from "./components/DocumentListItem";
+import { DocumentViewer } from "./components/DocumentViewer";
 import { DropZone } from "./components/DropZone";
 import { IconGear } from "./components/editorIcons";
 import {
@@ -65,6 +66,10 @@ export default function App() {
   const [inboxBanner, setInboxBanner] = useState<{
     kind: "warn" | "ok";
     text: string;
+  } | null>(null);
+  const [viewerDoc, setViewerDoc] = useState<{
+    id: string;
+    name: string;
   } | null>(null);
 
   const stepIndex = STEPS.indexOf(step);
@@ -308,7 +313,8 @@ export default function App() {
 
   function openDocument(documentId: string) {
     if (!project) return;
-    window.open(api.documentUrl(project.id, documentId), "_blank", "noopener,noreferrer");
+    const doc = project.documents.find((d) => d.id === documentId);
+    setViewerDoc({ id: documentId, name: doc?.display_name || "Dokument" });
   }
 
   async function runAnalyze() {
@@ -1019,6 +1025,14 @@ export default function App() {
         <div className="undo-toast" role="status">
           <span>{inboxToast}</span>
         </div>
+      )}
+      {viewerDoc && project && (
+        <DocumentViewer
+          projectId={project.id}
+          documentId={viewerDoc.id}
+          title={viewerDoc.name}
+          onClose={() => setViewerDoc(null)}
+        />
       )}
     </div>
   );

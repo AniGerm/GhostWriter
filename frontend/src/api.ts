@@ -166,6 +166,10 @@ export const api = {
     `${BASE}/api/projects/${projectId}/documents/${documentId}/file`,
   documentPageUrl: (projectId: string, documentId: string, pageNumber: number) =>
     `${BASE}/api/projects/${projectId}/documents/${documentId}/pages/${pageNumber}`,
+  documentPreview: (projectId: string, documentId: string) =>
+    req<{ page_count: number; display_name: string }>(
+      `/api/projects/${projectId}/documents/${documentId}/preview`,
+    ),
   listPrinters: () =>
     req<{
       printers: { name: string; is_default: boolean }[];
