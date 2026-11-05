@@ -10,6 +10,8 @@ PPD_DIR="/usr/share/ppd/ghostwriter"
 PPD_DST="${PPD_DIR}/GhostWriter.ppd"
 SPOOL="/var/spool/ghostwriter"
 PRINTER_NAME="GhostWriter"
+POLKIT_RULE_SRC="${BACKEND_SRC%/*}/../polkit/49-ghostwriter-cups.rules"
+POLKIT_RULE_DST="/etc/polkit-1/rules.d/49-ghostwriter-cups.rules"
 
 log() { echo "ghostwriter-printer: $*"; }
 warn() { echo "ghostwriter-printer: WARNUNG: $*" >&2; }
@@ -33,12 +35,10 @@ ensure_cups() {
   local i
   for i in $(seq 1 40); do
     if lpstat -r >/dev/null 2>&1; then
-      # "scheduler is running" / "Zeitplandienst läuft"
       if lpstat -r 2>/dev/null | grep -Eiq 'running|läuft'; then
         return 0
       fi
     fi
-    # Socket da?
     if [[ -S /run/cups/cups.sock ]] || [[ -S /var/run/cups/cups.sock ]]; then
       if timeout 2 lpstat -r >/dev/null 2>&1; then
         return 0
@@ -51,7 +51,6 @@ ensure_cups() {
 }
 
 repair_user_spools() {
-  # Bestehende User-Spools von nobody:0700 auf User:0755 korrigieren
   [[ -d "${SPOOL}" ]] || return 0
   local dir user
   for dir in "${SPOOL}"/*; do
@@ -66,6 +65,19 @@ repair_user_spools() {
   done
 }
 
+install_polkit_rule() {
+  # Verhindert PolicyKit-Passwort-Dialoge beim lokalen Drucken
+  local src="${POLKIT_RULE_SRC}"
+  if [[ ! -f "${src}" ]]; then
+    src="/opt/ghostwriter/packaging/polkit/49-ghostwriter-cups.rules"
+  fi
+  if [[ -f "${src}" ]]; then
+    install -d -m 0755 /etc/polkit-1/rules.d
+    install -o root -g root -m 0644 "${src}" "${POLKIT_RULE_DST}"
+    log "Polkit-Regel installiert (Druck ohne Admin-Passwort)"
+  fi
+}
+
 install_files() {
   if [[ ! -f "${BACKEND_SRC}" ]]; then
     echo "ghostwriter-printer: Backend fehlt: ${BACKEND_SRC}" >&2
@@ -77,10 +89,47 @@ install_files() {
   fi
   install -d -m 1777 "${SPOOL}"
   install -d -m 0755 "${PPD_DIR}"
-  # CUPS erwartet root-eigene Backends
-  install -o root -g root -m 0755 "${BACKEND_SRC}" "${BACKEND_DST}"
+  # CUPS: Backend MUSS root:root und mode 0700 sein, sonst Auth-Dialog / kein root-chown
+  install -o root -g root -m 0700 "${BACKEND_SRC}" "${BACKEND_DST}"
   install -o root -g root -m 0644 "${PPD_SRC}" "${PPD_DST}"
   repair_user_spools
+  install_polkit_rule
+}
+
+disable_printer_auth() {
+  # Keine Benutzername/Passwort-Abfrage im Druckdialog
+  lpadmin -p "${PRINTER_NAME}" -o auth-info-required=none >/dev/null 2>&1 || true
+  # Alle lokalen User dürfen drucken
+  lpadmin -p "${PRINTER_NAME}" -u allow:all >/dev/null 2>&1 || true
+  # Falls CUPS AuthInfoRequired in printers.conf gesetzt hat: entfernen
+  if command -v python3 >/dev/null 2>&1 && [[ -f /etc/cups/printers.conf ]]; then
+    python3 - <<'PY' || true
+from pathlib import Path
+p = Path("/etc/cups/printers.conf")
+try:
+    text = p.read_text(encoding="utf-8", errors="replace")
+except Exception:
+    raise SystemExit(0)
+lines = text.splitlines(keepends=True)
+out = []
+in_gw = False
+changed = False
+for line in lines:
+    if line.startswith("<Printer GhostWriter>") or line.startswith("<DefaultPrinter GhostWriter>"):
+        in_gw = True
+    elif in_gw and line.startswith("</Printer>"):
+        in_gw = False
+    if in_gw and line.strip().lower().startswith("authinforequired"):
+        changed = True
+        continue
+    out.append(line)
+if changed:
+    p.write_text("".join(out), encoding="utf-8")
+PY
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl reload cups.service >/dev/null 2>&1 || true
+    fi
+  fi
 }
 
 register_queue() {
@@ -88,7 +137,6 @@ register_queue() {
     warn "lpadmin fehlt"
     return 1
   }
-  # Alte Queue entfernen (idempotent)
   lpadmin -x "${PRINTER_NAME}" >/dev/null 2>&1 || true
 
   local attempt
@@ -100,10 +148,10 @@ register_queue() {
       -L "Lokal (Befund-Import)"; then
       cupsenable "${PRINTER_NAME}" >/dev/null 2>&1 || true
       cupsaccept "${PRINTER_NAME}" >/dev/null 2>&1 || true
-      # Sichtbarkeit in Desktop-Dialogen
       lpadmin -p "${PRINTER_NAME}" -o printer-is-shared=false >/dev/null 2>&1 || true
+      disable_printer_auth
       if lpstat -p "${PRINTER_NAME}" >/dev/null 2>&1; then
-        log "Drucker '${PRINTER_NAME}' registriert (Versuch ${attempt})"
+        log "Drucker '${PRINTER_NAME}' registriert (Versuch ${attempt}, ohne Auth)"
         lpstat -v "${PRINTER_NAME}" || true
         return 0
       fi
@@ -120,7 +168,6 @@ main() {
   install_files
   if ! ensure_cups; then
     warn "CUPS nicht bereit – Druckerdateien sind installiert, Queue folgt beim nächsten Start von CUPS"
-    # Trigger für systemd-Path wäre Overkill; klare Meldung reicht für postinst
     return 1
   fi
   register_queue

@@ -31,58 +31,6 @@ from ghostwriter.settings import load_settings, save_settings
 from ghostwriter.store import DocumentRole, ProjectStore, Question
 from ghostwriter.updates import set_github_repo
 
-# #region agent log
-_DEBUG_LOG = Path("/home/max/Dokumente/GhostWriter/.cursor/debug-3e0627.log")
-_DEBUG_INGEST = "http://127.0.0.1:7618/ingest/e4f895d3-7933-43f7-9300-cd580c137a2e"
-
-
-def _agent_log(hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
-    """Session-Debug: NDJSON Datei + Ingest (ohne Patientendaten)."""
-    import json
-    import time
-    import urllib.request
-
-    payload = {
-        "sessionId": "3e0627",
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    line = json.dumps(payload, ensure_ascii=False) + "\n"
-    try:
-        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG.open("a", encoding="utf-8") as fh:
-            fh.write(line)
-    except Exception:
-        try:
-            Path("/tmp/debug-3e0627.log").write_text(
-                Path("/tmp/debug-3e0627.log").read_text(encoding="utf-8")
-                + line
-                if Path("/tmp/debug-3e0627.log").is_file()
-                else line,
-                encoding="utf-8",
-            )
-        except Exception:
-            pass
-    try:
-        req = urllib.request.Request(
-            _DEBUG_INGEST,
-            data=line.encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "X-Debug-Session-Id": "3e0627",
-            },
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=1.5)
-    except Exception:
-        pass
-
-
-# #endregion
-
 DATA_ROOT = default_data_root()
 STORE = ProjectStore(DATA_ROOT)
 SETTINGS_PATH = DATA_ROOT / "settings.json"
@@ -226,25 +174,6 @@ def health() -> dict[str, Any]:
     return {"ok": True, "version": updates.app_version(), "ollama": _ollama_status()}
 
 
-class DebugLogBody(BaseModel):
-    hypothesisId: str = ""
-    location: str = ""
-    message: str = ""
-    data: dict[str, Any] = Field(default_factory=dict)
-
-
-@app.post("/api/debug/log")
-def debug_log(body: DebugLogBody) -> dict[str, bool]:
-    """Nimmt Frontend-Debug-Events entgegen (Session 3e0627)."""
-    _agent_log(
-        body.hypothesisId or "FE",
-        body.location or "frontend",
-        body.message or "event",
-        body.data,
-    )
-    return {"ok": True}
-
-
 def _cups_scheduler_running() -> bool:
     import subprocess
 
@@ -288,9 +217,6 @@ def inbox_status() -> dict[str, Any]:
         result["owner_hint"] = f"uid={st.st_uid}"
     except OSError as exc:
         result["list_error"] = f"stat: {exc}"
-        # #region agent log
-        _agent_log("H2", "server.py:inbox_status", "spool_stat_failed", {**result, "runId": "post-fix"})
-        # #endregion
         return result
     try:
         entries = list(spool.iterdir())
@@ -304,24 +230,6 @@ def inbox_status() -> dict[str, Any]:
     except OSError as exc:
         result["list_error"] = f"listdir: {type(exc).__name__}: {exc}"
         result["readable"] = False
-    # #region agent log
-    _agent_log(
-        "H2-H5",
-        "server.py:inbox_status",
-        "inbox_probe",
-        {
-            "readable": result["readable"],
-            "list_error": result["list_error"],
-            "pdf_count": result["pdf_count"],
-            "new_pdf_count": result["new_pdf_count"],
-            "mode_hint": result["mode_hint"],
-            "owner_hint": result["owner_hint"],
-            "spool_exists": result["spool_exists"],
-            "cups_running": result["cups_running"],
-            "runId": "post-fix",
-        },
-    )
-    # #endregion
     return result
 
 
@@ -347,14 +255,6 @@ def import_inbox(project_id: str, body: InboxImportBody | None = None) -> dict[s
     try:
         new_pdfs = list_new_spool_pdfs(spool, state_path=state_path)
     except OSError as exc:
-        # #region agent log
-        _agent_log(
-            "H2",
-            "server.py:import_inbox",
-            "import_list_failed",
-            {"error": type(exc).__name__, "runId": "post-fix"},
-        )
-        # #endregion
         raise HTTPException(503, "Spool nicht lesbar – Drucker-Spool-Rechte prüfen") from exc
     for pdf in new_pdfs:
         try:
@@ -363,19 +263,6 @@ def import_inbox(project_id: str, body: InboxImportBody | None = None) -> dict[s
             imported.append({"id": doc.id, "display_name": doc.display_name})
         except Exception as exc:
             errors.append(type(exc).__name__)
-    # #region agent log
-    _agent_log(
-        "H4",
-        "server.py:import_inbox",
-        "import_done",
-        {
-            "imported_count": len(imported),
-            "error_count": len(errors),
-            "role": doc_role.value,
-            "runId": "post-fix",
-        },
-    )
-    # #endregion
     return {
         "imported": imported,
         "errors": errors,
@@ -836,9 +723,8 @@ def update_install() -> dict[str, Any]:
 
 
 FRONTEND_DIST_CANDIDATES: tuple[Path, ...] = (
-    # Debug: Workspace-Build zuerst, damit Instrumentierung ohne /opt-Write greift
-    Path(__file__).resolve().parents[1] / "frontend" / "dist",
     Path("/opt/ghostwriter/frontend/dist"),
+    Path(__file__).resolve().parents[1] / "frontend" / "dist",
     Path(__file__).resolve().parents[2] / "frontend" / "dist",
 )
 

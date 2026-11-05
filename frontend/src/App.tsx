@@ -91,26 +91,6 @@ export default function App() {
         .inboxStatus()
         .then(async (status) => {
           if (cancelled) return;
-          // #region agent log
-          void fetch("/api/debug/log", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              hypothesisId: "H2-H4",
-              location: "App.tsx:inboxProbe",
-              message: "inbox_status_poll",
-              data: {
-                step,
-                readable: status.readable,
-                list_error: status.list_error,
-                new_pdf_count: status.new_pdf_count,
-                cups_running: status.cups_running,
-                mode_hint: status.mode_hint,
-                runId: "post-fix",
-              },
-            }),
-          }).catch(() => undefined);
-          // #endregion
           if (!status.cups_running) {
             setInboxBanner({
               kind: "warn",

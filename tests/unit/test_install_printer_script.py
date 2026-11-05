@@ -16,6 +16,9 @@ def test_install_printer_script_is_executable_and_has_shebang() -> None:
     assert "lpadmin" in text
     assert "ghostwriter:/" in text
     assert "ensure_cups" in text
+    assert "auth-info-required=none" in text
+    assert "m 0700" in text
+    assert "49-ghostwriter-cups.rules" in text
 
 
 def test_postinst_invokes_install_printer_and_fails_loudly() -> None:

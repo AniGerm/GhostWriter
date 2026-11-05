@@ -1,0 +1,16 @@
+/*
+ * GhostWriter: lokales Drucken ohne Admin-Passwort-Dialog.
+ * Gilt nur für aktive lokale Benutzer (Praxis-PC).
+ */
+polkit.addRule(function (action, subject) {
+  if (!subject.local || !subject.active) {
+    return;
+  }
+  var id = action.id;
+  if (
+    id.indexOf("org.opensuse.cupspkhelper.mechanism.") === 0 ||
+    id.indexOf("org.cups.cupsd") === 0
+  ) {
+    return polkit.Result.YES;
+  }
+});
