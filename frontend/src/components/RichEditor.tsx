@@ -99,21 +99,61 @@ export function RichEditor({
 
   if (!editor) return null;
 
-  function applyMarkSize(pt: number) {
-    const saved = selectionRef.current;
-    let chain = editor!.chain().focus();
-    if (saved && saved.from !== saved.to) {
-      chain = chain.setTextSelection(saved);
-    }
-    chain.setFontSize(`${pt}pt`).run();
+  function rememberSelection() {
     const { from, to } = editor!.state.selection;
     selectionRef.current = { from, to };
   }
 
+  function focusSelection() {
+    const saved = selectionRef.current;
+    const max = editor!.state.doc.content.size;
+    if (saved && saved.from !== saved.to && saved.from >= 0 && saved.to <= max) {
+      editor!.commands.setTextSelection(saved);
+    }
+    return editor!.chain().focus();
+  }
+
+  function applyMarkSize(pt: number) {
+    focusSelection().setFontSize(`${pt}pt`).run();
+    const { from, to } = editor!.state.selection;
+    selectionRef.current = { from, to };
+  }
+
+  function applyBlockStyle(style: "paragraph" | "heading" | "bullet") {
+    focusSelection();
+    const inList = editor!.isActive("bulletList");
+    const chain = editor!.chain().focus();
+    if (style === "heading") {
+      if (inList) chain.toggleBulletList();
+      chain.setHeading({ level: 2 }).run();
+    } else if (style === "bullet") {
+      if (!inList) chain.toggleBulletList().run();
+    } else {
+      if (inList) chain.toggleBulletList();
+      chain.setParagraph().run();
+    }
+    const { from, to } = editor!.state.selection;
+    selectionRef.current = { from, to };
+  }
+
+  const blockValue = editor.isActive("bulletList")
+    ? "bullet"
+    : editor.isActive("heading")
+      ? "heading"
+      : "paragraph";
+
   return (
     <div className="editor-shell">
       <div className="editor-toolbar" role="toolbar" aria-label="Textformatierung">
-        <div className="editor-toolbar-format">
+        <div
+          className="editor-toolbar-format"
+          onPointerDown={rememberSelection}
+          onMouseDown={(event) => {
+            const target = event.target as HTMLElement;
+            if (target.closest("input, select, textarea")) return;
+            event.preventDefault();
+          }}
+        >
           <button
             type="button"
             title="Rückgängig"
@@ -131,49 +171,65 @@ export function RichEditor({
             <IconRedo />
           </button>
           <span className="toolbar-sep" />
+          <label className="toolbar-size">
+            Absatz
+            <select
+              aria-label="Absatzformat der Markierung"
+              title="Absatz der Markierung"
+              value={blockValue}
+              onChange={(event) =>
+                applyBlockStyle(event.target.value as "paragraph" | "heading" | "bullet")
+              }
+            >
+              <option value="paragraph">Fließtext</option>
+              <option value="heading">Überschrift</option>
+              <option value="bullet">Aufzählung</option>
+            </select>
+          </label>
+          <span className="toolbar-sep" />
           <button
             type="button"
-            title="Fett"
+            title="Markierung fett"
             aria-label="Fett"
             className={editor.isActive("bold") ? "is-active" : ""}
-            onClick={() => editor.chain().focus().toggleBold().run()}
+            onClick={() => focusSelection().toggleBold().run()}
           >
             <IconBold />
           </button>
           <button
             type="button"
-            title="Kursiv"
+            title="Markierung kursiv"
             aria-label="Kursiv"
             className={editor.isActive("italic") ? "is-active" : ""}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
+            onClick={() => focusSelection().toggleItalic().run()}
           >
             <IconItalic />
           </button>
           <button
             type="button"
-            title="Unterstrichen"
+            title="Markierung unterstrichen"
             aria-label="Unterstrichen"
             className={editor.isActive("underline") ? "is-active" : ""}
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            onClick={() => focusSelection().toggleUnderline().run()}
           >
             <IconUnderline />
           </button>
           <span className="toolbar-sep" />
           <button
             type="button"
-            title="Überschrift"
+            title="Absatz als Überschrift"
             aria-label="Überschrift"
             className={editor.isActive("heading", { level: 2 }) ? "is-active" : ""}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            onClick={() => applyBlockStyle(editor.isActive("heading") ? "paragraph" : "heading")}
           >
             <IconHeading />
           </button>
           <button
             type="button"
-            title="Aufzählung"
+            title="Absatz als Aufzählung"
             aria-label="Aufzählung"
             className={editor.isActive("bulletList") ? "is-active" : ""}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            onClick={() => applyBlockStyle(editor.isActive("bulletList") ? "paragraph" : "bullet")}
           >
             <IconList />
           </button>
@@ -183,7 +239,7 @@ export function RichEditor({
             title="Linksbündig"
             aria-label="Linksbündig"
             className={editor.isActive({ textAlign: "left" }) ? "is-active" : ""}
-            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            onClick={() => focusSelection().setTextAlign("left").run()}
           >
             <IconAlignLeft />
           </button>
@@ -192,7 +248,7 @@ export function RichEditor({
             title="Zentriert"
             aria-label="Zentriert"
             className={editor.isActive({ textAlign: "center" }) ? "is-active" : ""}
-            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            onClick={() => focusSelection().setTextAlign("center").run()}
           >
             <IconAlignCenter />
           </button>
@@ -201,7 +257,7 @@ export function RichEditor({
             title="Blocksatz"
             aria-label="Blocksatz"
             className={editor.isActive({ textAlign: "justify" }) ? "is-active" : ""}
-            onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+            onClick={() => focusSelection().setTextAlign("justify").run()}
           >
             <IconAlignJustify />
           </button>
