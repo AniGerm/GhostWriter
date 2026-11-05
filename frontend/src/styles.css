@@ -666,20 +666,32 @@ button {
 
 .doc-viewer-body {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 16px 18px 24px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 18px;
-  background: var(--surface-2);
+  background: #3a3f44;
+}
+
+.doc-viewer-frame {
+  width: 100%;
+  flex: 1;
+  min-height: 70vh;
+  border: 0;
+  background: #3a3f44;
 }
 
 .doc-viewer-page {
   margin: 0;
+  width: min(100%, 210mm);
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.08);
+  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.18);
 }
 
 .doc-viewer-page figcaption {
@@ -1155,15 +1167,15 @@ button {
 .editor-page-gap {
   display: block;
   width: calc(100% + 2 * var(--page-pad-x, 23mm));
+  height: var(--page-gap);
   margin-left: calc(-1 * var(--page-pad-x, 23mm));
   margin-right: calc(-1 * var(--page-pad-x, 23mm));
   box-sizing: border-box;
   pointer-events: none;
   user-select: none;
-  /* Füllt Fuß der alten + Kopf der neuen Seite (Sperrzone) */
+  /* Fuß der alten Seite + Kopf der neuen Seite, gleich hoch */
   background: color-mix(in srgb, #eceae4 78%, #fffefb);
-  border-top: 1.5px solid rgba(120, 113, 108, 0.45);
-  border-bottom: 1px solid transparent;
+  box-shadow: inset 0 1.5px 0 rgba(120, 113, 108, 0.45);
 }
 
 .editor-canvas .tiptap,
@@ -1188,7 +1200,18 @@ button {
 
 .editor-canvas .tiptap p,
 .editor-canvas .ProseMirror p {
-  margin: 0 0 1em;
+  margin: 0 0 0.8em;
+}
+
+.editor-canvas .tiptap ul,
+.editor-canvas .ProseMirror ul {
+  margin: 0 0 0.8em;
+  padding-left: 1.2em;
+}
+
+.editor-canvas .tiptap li,
+.editor-canvas .ProseMirror li {
+  margin: 0 0 0.35em;
 }
 
 .editor-canvas .tiptap p.is-editor-empty:first-child::before,

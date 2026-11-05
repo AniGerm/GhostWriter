@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ghostwriter"
-version = "0.3.17"
+version = "0.3.18"
 description = "KI-gestützte ärztliche Befundberichte (GdB/SGB) – lokal mit Ollama"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from ghostwriter.report_html import restore_ascii_umlauts, strip_heading_brackets
+from ghostwriter.report_html import (
+    restore_ascii_umlauts,
+    rewrite_frage_labels,
+    strip_heading_brackets,
+)
 
 
 def test_strip_heading_brackets_from_h2() -> None:
@@ -31,6 +35,21 @@ def test_restore_ascii_umlauts_in_body() -> None:
     assert "für" in out
     assert "über" in out
     assert "gefuehle" not in out.lower()
+
+
+def test_rewrite_frage_heading_keeps_title() -> None:
+    html = "<h2>Zu Frage 20: Hilfsmittel</h2><ul><li>Rollator vorhanden.</li></ul>"
+    out = rewrite_frage_labels(html)
+    assert out == "<h2>Hilfsmittel</h2><ul><li>Rollator vorhanden.</li></ul>"
+    assert "Zu Frage" not in out
+
+
+def test_rewrite_frage_drops_empty_heading_and_paragraph_prefix() -> None:
+    html = "<h2>Zu Frage 20</h2><p>Zu Frage 3: Keine Einschränkung bekannt.</p>"
+    out = rewrite_frage_labels(html)
+    assert "<h2>" not in out
+    assert out.startswith("<p>Keine Einschränkung bekannt.</p>")
+    assert "Zu Frage" not in out
 
 
 def test_restore_ascii_umlauts_keeps_tags() -> None:

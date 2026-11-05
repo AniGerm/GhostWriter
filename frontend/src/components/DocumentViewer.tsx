@@ -9,6 +9,7 @@ type Props = {
 };
 
 export function DocumentViewer({ projectId, documentId, title, onClose }: Props) {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [displayName, setDisplayName] = useState(title || "Dokument");
   const [error, setError] = useState<string | null>(null);
@@ -16,25 +17,43 @@ export function DocumentViewer({ projectId, documentId, title, onClose }: Props)
 
   useEffect(() => {
     let cancelled = false;
+    let objectUrl = "";
     setLoading(true);
     setError(null);
-    void api
-      .documentPreview(projectId, documentId)
-      .then((meta) => {
+    setPdfUrl(null);
+    setPageCount(0);
+
+    const fileUrl = api.documentUrl(projectId, documentId);
+    void (async () => {
+      try {
+        const response = await fetch(fileUrl);
+        if (!response.ok) throw new Error("Dokument nicht lesbar");
+        const type = (response.headers.get("content-type") || "").toLowerCase();
+        const blob = await response.blob();
+        const looksPdf =
+          type.includes("pdf") || (title || "").toLowerCase().endsWith(".pdf");
+        if (cancelled) return;
+        if (looksPdf) {
+          objectUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+          setPdfUrl(objectUrl);
+          setDisplayName(title || "Dokument");
+          return;
+        }
+        const meta = await api.documentPreview(projectId, documentId);
         if (cancelled) return;
         setPageCount(meta.page_count);
         setDisplayName(meta.display_name || title || "Dokument");
-      })
-      .catch((e: unknown) => {
+      } catch (e: unknown) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Vorschau fehlgeschlagen");
-        setPageCount(0);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [projectId, documentId, title]);
 
@@ -47,11 +66,7 @@ export function DocumentViewer({ projectId, documentId, title, onClose }: Props)
   }, [onClose]);
 
   return (
-    <div
-      className="doc-viewer-overlay"
-      role="presentation"
-      onClick={onClose}
-    >
+    <div className="doc-viewer-overlay" role="presentation" onClick={onClose}>
       <div
         className="doc-viewer-dialog"
         role="dialog"
@@ -66,12 +81,13 @@ export function DocumentViewer({ projectId, documentId, title, onClose }: Props)
           </button>
         </header>
         <div className="doc-viewer-body">
-          {loading && <p className="hint">Seiten werden geladen …</p>}
+          {loading && <p className="hint">Dokument wird geladen …</p>}
           {error && <p className="error">{error}</p>}
-          {!loading && !error && pageCount === 0 && (
-            <p className="hint">Keine Seiten gefunden.</p>
+          {pdfUrl && (
+            <iframe className="doc-viewer-frame" title={displayName} src={pdfUrl} />
           )}
-          {!loading &&
+          {!pdfUrl &&
+            !loading &&
             !error &&
             Array.from({ length: pageCount }, (_, index) => {
               const page = index + 1;
@@ -83,7 +99,6 @@ export function DocumentViewer({ projectId, documentId, title, onClose }: Props)
                   <img
                     src={api.documentPageUrl(projectId, documentId, page)}
                     alt={`Seite ${page}`}
-                    loading={page <= 2 ? "eager" : "lazy"}
                   />
                 </figure>
               );

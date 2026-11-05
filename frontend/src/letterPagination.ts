@@ -8,10 +8,38 @@ export const A4_PAGE_HEIGHT_MM = 297;
 export const A4_PAGE_WIDTH_MM = 210;
 
 export function a4ContentHeightPx(): number {
-  const usable =
-    A4_PAGE_HEIGHT_MM - A4_MARGIN_TOP_MM - A4_MARGIN_BOTTOM_MM;
-  // Kleiner Puffer, damit Blöcke nicht in die Fuß-Sperrzone rutschen
-  return Math.max(1, Math.round((usable * 96) / 25.4) - 12);
+  const usable = A4_PAGE_HEIGHT_MM - A4_MARGIN_TOP_MM - A4_MARGIN_BOTTOM_MM;
+  return Math.max(1, (usable * 96) / 25.4);
+}
+
+export function a4GapHeightPx(): number {
+  return ((A4_MARGIN_TOP_MM + A4_MARGIN_BOTTOM_MM) * 96) / 25.4;
+}
+
+/**
+ * Zeilen, vor denen ein Seitenumbruch steht.
+ * `lineHeights` sind die belegten Höhen in Lesereihenfolge (inkl. Abstand zur nächsten Zeile).
+ * Gleich hohe Kopf- und Fußzone: es wird nur EIN Umbruch gesetzt, nie eine zweite Lücke danach.
+ */
+export function pageBreakLineIndices(
+  lineHeights: number[],
+  contentHeight: number,
+): number[] {
+  if (contentHeight <= 0) return [];
+  const breaks: number[] = [];
+  let used = 0;
+  for (let index = 0; index < lineHeights.length; index += 1) {
+    const height = Math.max(1, lineHeights[index] ?? 1);
+    if (used > 0 && used + height > contentHeight + 0.5) {
+      breaks.push(index);
+      used = 0;
+    }
+    used += height;
+    // Seite ist voll: die nächste Zeile braucht genau eine Lücke davor,
+    // sonst läuft sie in die Fußzone.
+    if (used >= contentHeight - 0.5) used = contentHeight;
+  }
+  return breaks;
 }
 
 export function a4PageWidthPx(): number {

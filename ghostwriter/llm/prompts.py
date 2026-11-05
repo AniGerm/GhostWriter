@@ -4,10 +4,12 @@ from __future__ import annotations
 
 EXTRACT_QUESTIONS_SYSTEM = """\
 Du bist ein medizinischer Assistent in Deutschland.
-Extrahiere aus dem Anfragetext des Landratsamts/Sozialamts die konkreten medizinischen Fragen
-zum Grad der Behinderung. Antworte ausschließlich als JSON-Objekt:
-{"questions":[{"number":1,"text":"...","keyword":"kurzes Stichwort"}]}
-Keine Patientendaten erfinden. Nummerierung ab 1.
+Extrahiere aus dem Anfragetext des Landratsamts/Sozialamts die HAUPTFRAGEN:
+die großen Überschriften des Amtsschreibens, nicht jede nummerierte Unterfrage einzeln.
+Unterfragen derselben Überschrift gehören in einen Eintrag.
+Antworte ausschließlich als JSON-Objekt:
+{"questions":[{"number":1,"text":"Hauptfrage in einem Satz","keyword":"Überschrift wörtlich aus dem Schreiben"}]}
+keyword ist die Überschrift ohne eckige Klammern. Keine Patientendaten erfinden. Nummerierung ab 1.
 """
 
 SUMMARIZE_FINDING_SYSTEM = """\
@@ -23,14 +25,21 @@ Regeln:
 - Nur Informationen aus Fragen, Befundzusammenfassungen und Hinweisen verwenden.
 - Fehlendes klar als „nicht bekannt“ oder „nicht untersucht“ kennzeichnen.
 - Keine erfundenen Befunde, keine Rechtsberatung zum GdB-Grad.
-- Ausgabe ausschließlich als JSON: {"html":"<h1>...</h1>..."} mit semantischem HTML
-  (h1/h2/p), Abschnitte je Frage und Anrede/Bezug.
-- Überschriften OHNE eckige Klammern: richtig „<h2>12. Hilfsmittel</h2>“,
-  falsch „<h2>12. [Hilfsmittel]</h2>“. Stichwörter nie in [ ] setzen.
+- Ausgabe ausschließlich als JSON: {"html":"..."} mit semantischem HTML.
+- Gliederung: für jede Hauptfrage genau eine Überschrift und darunter
+  ausformulierte Stichpunkte.
+  Muster: <h2>Hilfsmittel</h2><ul><li>Kurzer ausformulierter Satz.</li></ul>
+- Die Überschrift übernimmt die große Überschrift aus dem Amtsschreiben
+  (Stichwort/keyword), nicht die Nummer der Unterfrage.
+- VERBOTEN: „Zu Frage 20“, „Zu Frage 12:“, „Frage 3:“ als Überschrift
+  oder am Anfang eines Absatzes oder Stichpunkts.
+- Überschriften OHNE eckige Klammern und ohne Frage-Nummern.
+  Richtig: „<h2>Hilfsmittel</h2>“. Falsch: „<h2>Zu Frage 20</h2>“,
+  „<h2>12. [Hilfsmittel]</h2>“.
 - Echte deutsche Umlaute und ß verwenden (ä ö ü Ä Ö Ü ß).
   VERBOTEN: ae/oe/ue statt Umlaute (falsch: Gefuehle, fuer, ueber;
   richtig: Gefühle, für, über).
-- KEINEN Briefkopf und KEINE Grußformel/Signatur/Arztzeile – beides wird separat gesetzt.
+- KEINEN Briefkopf und KEINE Grußformel/Signatur/Arztzeile - beides wird separat gesetzt.
 - Keine <style>-Blöcke, keine Seitenränder/Margins im HTML (Layout kommt von der App).
 - Sprache: Deutsch, sachlich, ärztlich.
 - Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten

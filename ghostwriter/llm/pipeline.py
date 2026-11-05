@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from ghostwriter.llm import prompts
-from ghostwriter.report_html import restore_ascii_umlauts, strip_heading_brackets
+from ghostwriter.report_html import (
+    restore_ascii_umlauts,
+    rewrite_frage_labels,
+    strip_heading_brackets,
+)
 from ghostwriter.signature import apply_signature, strip_trailing_signature
 from ghostwriter.store import Question
 
@@ -85,12 +89,14 @@ class ReportPipeline:
         f_block = "\n---\n".join(finding_summaries) if finding_summaries else "(keine)"
         parts = [
             f"Briefkopf-HTML (optional übernehmen):\n{letterhead_html}",
-            f"Fragen:\n{q_block}",
+            "Hauptfragen (Überschrift = Stichwort, darunter nur Stichpunkte, "
+            "niemals „Zu Frage N“):\n"
+            f"{q_block}",
             f"Befundzusammenfassungen:\n{f_block}",
             f"Hinweise des Arztes:\n{notes or '(keine)'}",
         ]
         if current_html.strip():
-            # Fuß (Signatur) nie als editierbaren Entwurf mitschicken – wird danach gesetzt
+            # Fuß (Signatur) nie als editierbaren Entwurf mitschicken - wird danach gesetzt
             draft_body = strip_trailing_signature(current_html.strip())
             parts.append(f"Aktueller Entwurf (HTML):\n{draft_body}")
         if revision_notes.strip():
@@ -100,6 +106,7 @@ class ReportPipeline:
         data = self._client.chat_json(system=prompts.COMPOSE_REPORT_SYSTEM, user=user)
         html = str(data.get("html", "")).strip()
         html = strip_heading_brackets(html)
+        html = rewrite_frage_labels(html)
         html = restore_ascii_umlauts(html)
         # Kopf (Briefkopf) und Fuß (Signatur) immer kanonisch aus Einstellungen
         if letterhead_html.strip():

@@ -29,8 +29,38 @@ _UMLAUT_DENY = {
 }
 
 
+_ZU_FRAGE_RE = re.compile(
+    r"^\s*(?:zu\s+)?frage\s+\d+\s*[:.\-]*\s*",
+    re.IGNORECASE,
+)
+_BLOCK_RE = re.compile(
+    r"(<(h[1-3]|p)\b[^>]*>)(.*?)(</\2>)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def rewrite_frage_labels(html: str) -> str:
+    """Entfernt 'Zu Frage N' aus Überschriften und Absatzanfängen.
+
+    Überschriften behalten den Resttitel (z. B. 'Hilfsmittel').
+    Bleibt nur das Frage-Label übrig, fällt die Überschrift weg.
+    """
+
+    def _clean(match: re.Match[str]) -> str:
+        open_tag, _level, body, close_tag = match.groups()
+        text = re.sub(r"<[^>]+>", "", body)
+        stripped = _ZU_FRAGE_RE.sub("", text).strip()
+        if not stripped:
+            return ""
+        if stripped == text.strip():
+            return match.group(0)
+        return f"{open_tag}{stripped}{close_tag}"
+
+    return _BLOCK_RE.sub(_clean, html)
+
+
 def strip_heading_brackets(html: str) -> str:
-    """Entfernt eckige Klammern um Stichwörter in Überschriften (h1–h3)."""
+    """Entfernt eckige Klammern um Stichwörter in Überschriften (h1-h3)."""
 
     def _clean(match: re.Match[str]) -> str:
         open_tag, _level, body, close_tag = match.groups()

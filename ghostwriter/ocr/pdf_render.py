@@ -28,8 +28,18 @@ def _render_pdf(pdf_path: Path, dest_dir: Path, *, dpi: int) -> list[Path]:
         for index in range(len(pdf)):
             page = pdf[index]
             try:
-                bitmap = page.render(scale=scale)
+                # /Rotate ist in get_size() schon enthalten. Zusätzliche Drehung
+                # nur, wenn die Bitmap quer zur angezeigten Seite liegt (zerrissene
+                # Querformat-Darstellung).
+                shown_w, shown_h = page.get_size()
+                bitmap = page.render(scale=scale, rev_byteorder=True)
                 image = bitmap.to_pil().convert("RGB")
+                if (shown_w > shown_h) != (image.width > image.height):
+                    image = page.render(
+                        scale=scale,
+                        rotation=page.get_rotation(),
+                        rev_byteorder=True,
+                    ).to_pil().convert("RGB")
                 out = dest_dir / f"{index + 1:04d}.png"
                 image.save(out, "PNG")
                 outs.append(out)
