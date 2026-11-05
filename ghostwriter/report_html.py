@@ -125,7 +125,7 @@ def resolve_reply_identity(
     birth_date: str,
     *sources: str,
 ) -> tuple[str, str]:
-    """Bevorzugt einen vollständigen Namen aus den Unterlagen."""
+    """Name aus den Unterlagen, Datum daraus oder sonst vom Projektanfang."""
     found_name = ""
     found_birth = ""
     for source in sources:
@@ -140,7 +140,7 @@ def resolve_reply_identity(
     name = label or "die Patientin oder den Patienten"
     if found_name and (not label or len(found_name) > len(label)):
         name = found_name
-    return name, birth_date.strip() or found_birth
+    return name, found_birth or birth_date.strip()
 
 
 def reply_intro_html(
@@ -155,7 +155,7 @@ def reply_intro_html(
     del subjects
     name = _plain(patient_label) or "die Patientin oder den Patienten"
     born = _format_birth_date(birth_date)
-    person = f"{name}, geboren am {born}" if born else name
+    person = f"{name}, geb.: {born}" if born else name
     lead = (
         "Ärztliche Stellungnahme zum Antrag auf Feststellung eines Grades der Behinderung "
         f"für {person}."

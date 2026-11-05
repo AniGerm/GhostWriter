@@ -433,11 +433,12 @@ class ProjectStore:
 
     @staticmethod
     def _project_from_row(row: sqlite3.Row) -> Project:
+        columns = row.keys()
         return Project(
             id=row["id"],
             patient_label=row["patient_label"],
             reference=row["reference"],
-            birth_date=str(row["birth_date"]) if "birth_date" in row else "",
+            birth_date=str(row["birth_date"]) if "birth_date" in columns else "",
             notes=row["notes"],
             draft_html=row["draft_html"],
             created_at=row["created_at"],

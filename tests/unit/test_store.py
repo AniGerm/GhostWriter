@@ -13,6 +13,17 @@ def store(tmp_path: Path) -> ProjectStore:
     return ProjectStore(root=tmp_path / "data")
 
 
+def test_birth_date_is_read_back(store: ProjectStore) -> None:
+    project = store.create_project(
+        patient_label="P",
+        reference="",
+        birth_date="1965-04-03",
+    )
+    loaded = store.get_project(project.id)
+    assert loaded is not None
+    assert loaded.birth_date == "1965-04-03"
+
+
 def test_create_project_assigns_id_and_dir(store: ProjectStore) -> None:
     project = store.create_project(patient_label="Max Mustermann", reference="AZ-1")
     assert project.id

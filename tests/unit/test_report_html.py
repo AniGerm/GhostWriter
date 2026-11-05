@@ -54,8 +54,7 @@ def test_reply_intro_uses_name_and_german_birth_date() -> None:
     assert "Musterstadt" in html
     assert "05.11.2026" in html
     assert "Grades der Behinderung" in html
-    assert "Erika Muster" in html
-    assert "geboren am 01.02.1970" in html
+    assert "Erika Muster, geb.: 01.02.1970" in html
     assert "Wirbelsäule" not in html
     assert "Das Amtsschreiben betrifft" not in html
     assert html.index("gw-reply-lead") < html.index("<h2>Hilfsmittel</h2>")
@@ -100,6 +99,18 @@ def test_extract_patient_identity_from_letter() -> None:
     name, born = extract_patient_identity(text)
     assert name == "Erika Muster"
     assert born == "1970-02-01"
+
+
+def test_resolve_reply_identity_uses_project_date_when_documents_have_none() -> None:
+    name, born = resolve_reply_identity("Max Mustermann", "1965-04-03", "Kein Datum im Text.")
+    assert name == "Max Mustermann"
+    assert born == "1965-04-03"
+
+
+def test_resolve_reply_identity_prefers_document_date() -> None:
+    text = "Herr Max Mustermann, geb. 03.04.1965."
+    _name, born = resolve_reply_identity("Max Mustermann", "1970-01-01", text)
+    assert born == "1965-04-03"
 
 
 def test_resolve_reply_identity_prefers_document_name() -> None:
