@@ -409,10 +409,6 @@ export default function App() {
         {step === "Start" && (
           <>
             <h1 className="hero-title">Neues Projekt</h1>
-            <p className="hero-copy">
-              Fall anlegen, dann Anfrage und Befunde laden. Bestehende Fälle finden
-              Sie links über die Suche.
-            </p>
             <div className="grid-2">
               <div className="field">
                 <label htmlFor="patient">Patient / Kennung</label>

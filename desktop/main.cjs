@@ -53,7 +53,10 @@ function createWindow() {
     win.maximize();
     win.show();
   });
-  win.loadURL(START_URL);
+  // Verhindert, dass nach Updates die alte UI aus dem Disk-Cache kommt
+  win.webContents.session.clearCache().catch(() => undefined);
+  const bust = encodeURIComponent(String(Date.now()));
+  win.loadURL(`${START_URL}${START_URL.includes("?") ? "&" : "?"}v=${bust}`);
   win.webContents.setWindowOpenHandler(({ url }) => {
     // Lokale API-Dokumente (PDF) in Electron-Fenster erlauben
     if (url.startsWith("http://127.0.0.1:") || url.startsWith("http://localhost:")) {
