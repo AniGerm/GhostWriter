@@ -24,6 +24,7 @@ export type Project = {
     display_name: string;
     page_count: number;
     has_text: boolean;
+    included: boolean;
   }[];
   cost: {
     page_count: number;
@@ -118,6 +119,16 @@ export const api = {
       body,
     });
   },
+  setDocumentIncluded: (projectId: string, documentId: string, included: boolean) =>
+    req<Project>(`/api/projects/${projectId}/documents/${documentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ included }),
+    }),
+  deleteDocument: (projectId: string, documentId: string) =>
+    req<Project>(`/api/projects/${projectId}/documents/${documentId}`, {
+      method: "DELETE",
+    }),
   analyze: (id: string) =>
     req<{ job_id: string }>(`/api/projects/${id}/analyze`, { method: "POST" }),
   regenerate: (id: string, revision_notes = "") =>

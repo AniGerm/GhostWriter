@@ -21,14 +21,18 @@ from pydantic import BaseModel, Field
 from ghostwriter import updates
 from ghostwriter.costs import calculate_costs
 from ghostwriter.extract import ExtractionResult, extract_document_text
+from ghostwriter.inbox import (
+    list_new_spool_pdfs,
+    mark_all_spool_pdfs_processed,
+    mark_processed,
+)
 from ghostwriter.llm.client import OllamaClient, OllamaError, is_allowed_ollama_host
 from ghostwriter.llm.pipeline import ReportPipeline
-from ghostwriter.inbox import list_new_spool_pdfs, mark_processed
 from ghostwriter.paths import default_data_root, default_spool_dir
 from ghostwriter.preview import page_preview_path, preview_cache_dir
 from ghostwriter.printers import list_cups_printers
 from ghostwriter.settings import load_settings, save_settings
-from ghostwriter.store import DocumentRole, ProjectStore, Question
+from ghostwriter.store import Document, DocumentRole, ProjectStore, Question
 from ghostwriter.updates import set_github_repo
 
 DATA_ROOT = default_data_root()
@@ -100,6 +104,27 @@ class CreateProjectBody(BaseModel):
     reference: str = ""
 
 
+class DocumentPatchBody(BaseModel):
+    included: bool
+
+
+def included_finding_documents(docs: list[Document]) -> list[Document]:
+    """Befunde, die in Analyse/Regenerate einfließen sollen."""
+    return [
+        d
+        for d in docs
+        if d.role is DocumentRole.BEFUND and d.included and d.extracted_text.strip()
+    ]
+
+
+def _dismiss_spool_leftovers() -> None:
+    """Markiert aktuelle Spool-PDFs als gesehen, damit ein neues Projekt leer startet."""
+    settings = load_settings(SETTINGS_PATH)
+    spool = Path(settings.spool_dir) if settings.spool_dir else default_spool_dir()
+    state_path = DATA_ROOT / "inbox_state.json"
+    mark_all_spool_pdfs_processed(spool, state_path=state_path)
+
+
 def _project_dict(project_id: str) -> dict[str, Any]:
     project = STORE.get_project(project_id)
     if project is None:
@@ -121,6 +146,7 @@ def _project_dict(project_id: str) -> dict[str, Any]:
                 "display_name": d.display_name,
                 "page_count": d.page_count,
                 "has_text": bool(d.extracted_text.strip()),
+                "included": d.included,
             }
             for d in docs
         ],
@@ -255,7 +281,7 @@ def import_inbox(project_id: str, body: InboxImportBody | None = None) -> dict[s
     try:
         new_pdfs = list_new_spool_pdfs(spool, state_path=state_path)
     except OSError as exc:
-        raise HTTPException(503, "Spool nicht lesbar – Drucker-Spool-Rechte prüfen") from exc
+        raise HTTPException(503, "Spool nicht lesbar - Drucker-Spool-Rechte prüfen") from exc
     for pdf in new_pdfs:
         try:
             doc = STORE.add_document(project_id, pdf, doc_role, pdf.name)
@@ -285,6 +311,7 @@ def list_projects() -> list[dict[str, str]]:
 
 @app.post("/api/projects")
 def create_project(body: CreateProjectBody) -> dict[str, Any]:
+    _dismiss_spool_leftovers()
     project = STORE.create_project(
         patient_label=body.patient_label.strip() or "Ohne Name",
         reference=body.reference.strip(),
@@ -337,6 +364,31 @@ def put_draft(project_id: str, body: DraftBody) -> dict[str, Any]:
     if STORE.get_project(project_id) is None:
         raise HTTPException(404, "Projekt nicht gefunden")
     STORE.set_draft_html(project_id, body.html)
+    return _project_dict(project_id)
+
+
+@app.patch("/api/projects/{project_id}/documents/{document_id}")
+def patch_document(
+    project_id: str, document_id: str, body: DocumentPatchBody
+) -> dict[str, Any]:
+    if STORE.get_project(project_id) is None or not STORE.is_project_active(project_id):
+        raise HTTPException(404, "Projekt nicht gefunden")
+    docs = STORE.list_documents(project_id)
+    if not any(d.id == document_id for d in docs):
+        raise HTTPException(404, "Dokument nicht gefunden")
+    try:
+        STORE.set_document_included(document_id, body.included)
+    except KeyError as exc:
+        raise HTTPException(404, "Dokument nicht gefunden") from exc
+    return _project_dict(project_id)
+
+
+@app.delete("/api/projects/{project_id}/documents/{document_id}")
+def delete_document(project_id: str, document_id: str) -> dict[str, Any]:
+    if STORE.get_project(project_id) is None or not STORE.is_project_active(project_id):
+        raise HTTPException(404, "Projekt nicht gefunden")
+    if not STORE.delete_document(project_id, document_id):
+        raise HTTPException(404, "Dokument nicht gefunden")
     return _project_dict(project_id)
 
 
@@ -456,8 +508,9 @@ def start_regenerate(project_id: str, body: RegenerateBody) -> dict[str, str]:
 def _run_analyze(job_id: str, project_id: str) -> None:
     try:
         docs = STORE.list_documents(project_id)
-        total = max(1, len(docs))
-        for index, doc in enumerate(docs):
+        to_extract = [d for d in docs if d.included]
+        total = max(1, len(to_extract))
+        for index, doc in enumerate(to_extract):
             _set_job(
                 job_id,
                 phase="extracting",
@@ -472,7 +525,10 @@ def _run_analyze(job_id: str, project_id: str) -> None:
                 STORE.update_document_text(doc.id, result.text, result.page_count)
 
         docs = STORE.list_documents(project_id)
-        anfrage = next((d for d in docs if d.role is DocumentRole.ANFRAGE), None)
+        anfrage = next(
+            (d for d in docs if d.role is DocumentRole.ANFRAGE and d.included),
+            None,
+        )
         if anfrage is None or not anfrage.extracted_text.strip():
             _set_job(job_id, phase="error", error="Keine Anfrage mit Text", percent=100)
             return
@@ -498,9 +554,7 @@ def _run_analyze(job_id: str, project_id: str) -> None:
             questions = pipe.extract_questions(anfrage.extracted_text)
             STORE.set_questions(project_id, questions)
 
-        findings = [
-            d for d in docs if d.role is DocumentRole.BEFUND and d.extracted_text.strip()
-        ]
+        findings = included_finding_documents(docs)
         summaries: list[str] = []
         for index, doc in enumerate(findings):
             _set_job(
@@ -548,9 +602,7 @@ def _run_regenerate(job_id: str, project_id: str, revision_notes: str) -> None:
         client.ensure_model_available()
         pipe = ReportPipeline(client)
         docs = STORE.list_documents(project_id)
-        findings = [
-            d for d in docs if d.role is DocumentRole.BEFUND and d.extracted_text.strip()
-        ]
+        findings = included_finding_documents(docs)
         summaries: list[str] = []
         for index, doc in enumerate(findings):
             _set_job(

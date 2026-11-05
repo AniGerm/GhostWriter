@@ -739,14 +739,65 @@ button {
   gap: 8px;
 }
 
-.file-list li {
+.file-list li,
+.file-list-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--surface-2);
   border: 1px solid var(--line);
+}
+
+.file-list-item.is-excluded {
+  opacity: 0.62;
+}
+
+.file-list-include {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.file-list-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-list-open {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.file-list-open:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.file-list-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.file-list-remove {
+  padding: 8px 12px;
+  font-size: 0.85rem;
 }
 
 .actions {

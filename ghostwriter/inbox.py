@@ -52,3 +52,16 @@ def mark_processed(path: Path, *, state_path: Path) -> None:
     processed = _load_state(state_path)
     processed.add(stable_job_id(path))
     _save_state(state_path, processed)
+
+
+def mark_all_spool_pdfs_processed(spool_dir: Path, *, state_path: Path) -> int:
+    """Markiert alle aktuellen Spool-PDFs als gesehen (ohne Import)."""
+    if not spool_dir.is_dir():
+        return 0
+    count = 0
+    for path in spool_dir.iterdir():
+        if not path.is_file() or path.suffix.lower() != ".pdf":
+            continue
+        mark_processed(path, state_path=state_path)
+        count += 1
+    return count

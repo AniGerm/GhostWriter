@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ghostwriter.inbox import list_new_spool_pdfs, mark_processed, stable_job_id
+from ghostwriter.inbox import (
+    list_new_spool_pdfs,
+    mark_all_spool_pdfs_processed,
+    mark_processed,
+    stable_job_id,
+)
 
 
 def test_lists_only_pdfs_not_yet_processed(tmp_path: Path) -> None:
@@ -34,3 +39,13 @@ def test_stable_job_id_is_deterministic(tmp_path: Path) -> None:
     pdf = tmp_path / "x.pdf"
     pdf.write_bytes(b"%PDF-data")
     assert stable_job_id(pdf) == stable_job_id(pdf)
+
+
+def test_mark_all_spool_pdfs_processed(tmp_path: Path) -> None:
+    spool = tmp_path / "spool"
+    spool.mkdir()
+    (spool / "a.pdf").write_bytes(b"%PDF")
+    (spool / "b.pdf").write_bytes(b"%PDF")
+    state = tmp_path / "state.json"
+    assert mark_all_spool_pdfs_processed(spool, state_path=state) == 2
+    assert list_new_spool_pdfs(spool, state_path=state) == []

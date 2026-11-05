@@ -40,6 +40,7 @@ class Document:
     stored_path: str
     extracted_text: str = ""
     page_count: int = 0
+    included: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +137,14 @@ class ProjectStore:
             if "deleted_at" not in cols:
                 self._conn.execute(
                     "ALTER TABLE projects ADD COLUMN deleted_at TEXT"
+                )
+            doc_cols = {
+                row[1]
+                for row in self._conn.execute("PRAGMA table_info(documents)").fetchall()
+            }
+            if "included" not in doc_cols:
+                self._conn.execute(
+                    "ALTER TABLE documents ADD COLUMN included INTEGER NOT NULL DEFAULT 1"
                 )
             self._conn.commit()
 
@@ -262,8 +271,8 @@ class ProjectStore:
             self._conn.execute(
                 """
                 INSERT INTO documents
-                (id, project_id, role, display_name, stored_path, extracted_text, page_count)
-                VALUES (?, ?, ?, ?, ?, '', 0)
+                (id, project_id, role, display_name, stored_path, extracted_text, page_count, included)
+                VALUES (?, ?, ?, ?, ?, '', 0, 1)
                 """,
                 (doc_id, project_id, role.value, display_name, str(dest)),
             )
@@ -275,6 +284,7 @@ class ProjectStore:
             role=role,
             display_name=display_name,
             stored_path=str(dest),
+            included=True,
         )
 
     def list_documents(self, project_id: str) -> list[Document]:
@@ -284,6 +294,43 @@ class ProjectStore:
                 (project_id,),
             ).fetchall()
         return [self._document_from_row(row) for row in rows]
+
+    def set_document_included(self, document_id: str, included: bool) -> Document:
+        """Schließt ein Dokument in Analyse/Druck ein oder aus."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE documents SET included = ? WHERE id = ?",
+                (1 if included else 0, document_id),
+            )
+            if cur.rowcount == 0:
+                raise KeyError(document_id)
+            row = self._conn.execute(
+                "SELECT * FROM documents WHERE id = ?", (document_id,)
+            ).fetchone()
+            assert row is not None
+            self._touch(row["project_id"])
+            self._conn.commit()
+            return self._document_from_row(row)
+
+    def delete_document(self, project_id: str, document_id: str) -> bool:
+        """Löscht Dokument-Metadaten und die gespeicherte Datei."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM documents WHERE id = ? AND project_id = ?",
+                (document_id, project_id),
+            ).fetchone()
+            if row is None:
+                return False
+            stored = Path(row["stored_path"])
+            self._conn.execute(
+                "DELETE FROM documents WHERE id = ? AND project_id = ?",
+                (document_id, project_id),
+            )
+            self._touch(project_id)
+            self._conn.commit()
+        if stored.is_file():
+            stored.unlink()
+        return True
 
     def update_document_text(self, document_id: str, text: str, page_count: int) -> None:
         with self._lock:
@@ -389,6 +436,8 @@ class ProjectStore:
 
     @staticmethod
     def _document_from_row(row: sqlite3.Row) -> Document:
+        keys = row.keys()
+        included = True if "included" not in keys else bool(row["included"])
         return Document(
             id=row["id"],
             project_id=row["project_id"],
@@ -397,4 +446,5 @@ class ProjectStore:
             stored_path=row["stored_path"],
             extracted_text=row["extracted_text"],
             page_count=row["page_count"],
+            included=included,
         )

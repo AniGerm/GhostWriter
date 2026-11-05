@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type AppSettings, type Job, type Project, type ProjectSummary } from "./api";
 import { AppSidebar } from "./components/AppSidebar";
+import { DocumentListItem } from "./components/DocumentListItem";
 import { DropZone } from "./components/DropZone";
 import { IconGear } from "./components/editorIcons";
 import {
@@ -279,6 +280,37 @@ export default function App() {
     }
   }
 
+  async function toggleDocumentIncluded(documentId: string, included: boolean) {
+    if (!project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setProject(await api.setDocumentIncluded(project.id, documentId, included));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Auswahl fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeDocument(documentId: string) {
+    if (!project) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setProject(await api.deleteDocument(project.id, documentId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Löschen fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openDocument(documentId: string) {
+    if (!project) return;
+    window.open(api.documentUrl(project.id, documentId), "_blank", "noopener,noreferrer");
+  }
+
   async function runAnalyze() {
     if (!project) return;
     setBusy(true);
@@ -532,10 +564,15 @@ export default function App() {
             />
             {anfrage && (
               <ul className="file-list">
-                <li>
-                  <span>{anfrage.display_name}</span>
-                  <span>{anfrage.has_text ? "Text vorhanden" : "bereit zur OCR"}</span>
-                </li>
+                <DocumentListItem
+                  name={anfrage.display_name}
+                  meta={anfrage.has_text ? "Text vorhanden" : "bereit zur OCR"}
+                  included={anfrage.included}
+                  busy={busy}
+                  onOpen={() => openDocument(anfrage.id)}
+                  onToggleIncluded={(value) => void toggleDocumentIncluded(anfrage.id, value)}
+                  onRemove={() => void removeDocument(anfrage.id)}
+                />
               </ul>
             )}
             <div className="actions">
@@ -544,7 +581,7 @@ export default function App() {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={!anfrage || busy}
+                disabled={!anfrage || !anfrage.included || busy}
                 onClick={() => setStep("Befunde")}
               >
                 Weiter zu Befunden
@@ -571,10 +608,16 @@ export default function App() {
             />
             <ul className="file-list">
               {befund.map((d) => (
-                <li key={d.id}>
-                  <span>{d.display_name}</span>
-                  <span>{d.page_count ? `${d.page_count} S.` : "neu"}</span>
-                </li>
+                <DocumentListItem
+                  key={d.id}
+                  name={d.display_name}
+                  meta={d.page_count ? `${d.page_count} S.` : "neu"}
+                  included={d.included}
+                  busy={busy}
+                  onOpen={() => openDocument(d.id)}
+                  onToggleIncluded={(value) => void toggleDocumentIncluded(d.id, value)}
+                  onRemove={() => void removeDocument(d.id)}
+                />
               ))}
             </ul>
             <div className="field" style={{ marginTop: 20 }}>
@@ -593,7 +636,7 @@ export default function App() {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={busy || !anfrage}
+                disabled={busy || !anfrage || !anfrage.included}
                 onClick={() => void runAnalyze()}
               >
                 Analyse starten
