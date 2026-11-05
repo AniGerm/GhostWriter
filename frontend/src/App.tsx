@@ -637,34 +637,57 @@ export default function App() {
               }
             />
             {regenOpen && (
-              <div className="regen-panel" role="region" aria-label="Schreiben neu erzeugen">
-                <label htmlFor="revision-notes">Anmerkungen für die KI</label>
-                <textarea
-                  id="revision-notes"
-                  value={revisionNotes}
-                  onChange={(e) => setRevisionNotes(e.target.value)}
-                  placeholder={
-                    "z. B. fehlende Punkte ergänzen, Stil kürzer/sachlicher, " +
-                    "Grußformel/Arztzeile aus den Einstellungen übernehmen …"
-                  }
-                />
-                <div className="actions" style={{ marginTop: 0 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    disabled={busy}
-                    onClick={() => setRegenOpen(false)}
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={busy}
-                    onClick={() => void regenerateDraft()}
-                  >
-                    Mit Anmerkungen neu erzeugen
-                  </button>
+              <div
+                className="regen-overlay"
+                role="presentation"
+                onClick={() => setRegenOpen(false)}
+              >
+                <div
+                  className="regen-dialog"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="regen-title"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 id="regen-title">Schreiben neu erzeugen</h2>
+                  <p className="hint">
+                    Optional Anmerkungen für die KI – z.&nbsp;B. fehlende Punkte,
+                    kürzerer Stil oder die Grußformel aus den Einstellungen.
+                  </p>
+                  <label className="sr-only" htmlFor="revision-notes">
+                    Anmerkungen für die KI
+                  </label>
+                  <textarea
+                    id="revision-notes"
+                    autoFocus
+                    value={revisionNotes}
+                    onChange={(e) => setRevisionNotes(e.target.value)}
+                    placeholder="Anmerkungen (optional) …"
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setRegenOpen(false);
+                      }
+                    }}
+                  />
+                  <div className="actions" style={{ marginTop: 0 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={busy}
+                      onClick={() => setRegenOpen(false)}
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={busy}
+                      onClick={() => void regenerateDraft()}
+                    >
+                      Neu erzeugen
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
