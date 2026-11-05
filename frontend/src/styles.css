@@ -687,6 +687,7 @@ button {
 .doc-viewer-page {
   margin: 0;
   width: min(100%, 210mm);
+  flex-shrink: 0;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
