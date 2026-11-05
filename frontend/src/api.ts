@@ -87,6 +87,10 @@ export const api = {
       body: JSON.stringify({ patient_label, reference }),
     }),
   getProject: (id: string) => req<Project>(`/api/projects/${id}`),
+  deleteProject: (id: string) =>
+    req<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
+  restoreProject: (id: string) =>
+    req<Project>(`/api/projects/${id}/restore`, { method: "POST" }),
   setNotes: (id: string, notes: string) =>
     req<Project>(`/api/projects/${id}/notes`, {
       method: "PUT",

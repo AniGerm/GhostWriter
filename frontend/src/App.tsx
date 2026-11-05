@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, type AppSettings, type Job, type Project, type ProjectSummary } from "./api";
-import { AppSettingsMenu } from "./components/AppSettingsMenu";
+import { AppSidebar } from "./components/AppSidebar";
 import { DropZone } from "./components/DropZone";
 import { IconGear } from "./components/editorIcons";
 import {
@@ -56,8 +56,18 @@ export default function App() {
   const [pageSelection, setPageSelection] = useState<Record<string, boolean>>({});
   const [regenOpen, setRegenOpen] = useState(false);
   const [revisionNotes, setRevisionNotes] = useState("");
+  const [undoToast, setUndoToast] = useState<{
+    projectId: string;
+    label: string;
+  } | null>(null);
 
   const stepIndex = STEPS.indexOf(step);
+
+  useEffect(() => {
+    if (!undoToast) return;
+    const timer = window.setTimeout(() => setUndoToast(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [undoToast]);
 
   useEffect(() => {
     api
@@ -284,8 +294,30 @@ export default function App() {
     setCost(null);
     setPageSelection({});
     setNotes("");
+    setRegenOpen(false);
     setStep("Start");
     void api.listProjects().then(setProjects).catch(() => undefined);
+  }
+
+  async function handleDeleteProject(id: string) {
+    const summary = projects.find((p) => p.id === id);
+    await api.deleteProject(id);
+    setProjects(await api.listProjects());
+    setUndoToast({
+      projectId: id,
+      label: summary?.patient_label || "Projekt",
+    });
+    if (project?.id === id) {
+      finishToStart();
+    }
+  }
+
+  async function handleUndoDelete() {
+    if (!undoToast) return;
+    const id = undoToast.projectId;
+    setUndoToast(null);
+    await api.restoreProject(id);
+    setProjects(await api.listProjects());
   }
 
   async function printPacket() {
@@ -355,45 +387,31 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <img className="brand-mark" src="/favicon.svg" alt="" width={36} height={36} />
-          <div>
-            <strong>GhostWriter</strong>
-            <span>Lokale GdB-Berichte{version ? ` · v${version}` : ""}</span>
-          </div>
-        </div>
-        <div className="topbar-right">
-          <nav className="steps" aria-label="Ablauf">
-            {STEPS.map((name, index) => (
-              <div
-                key={name}
-                className={`step-pill${step === name ? " active" : ""}${
-                  index < stepIndex ? " done" : ""
-                }`}
-              >
-                {index + 1}. {name}
-              </div>
-            ))}
-          </nav>
-          <AppSettingsMenu
-            settings={settings}
-            onSaved={(s) => {
-              setSettings(s);
-              setPostageDraft({ ...s.postage });
-              setFlatFeeDraft(s.flat_fee);
-            }}
-          />
-        </div>
-      </header>
+      <AppSidebar
+        version={version}
+        steps={STEPS}
+        step={step}
+        stepIndex={stepIndex}
+        onSelectStep={(name) => setStep(name as Step)}
+        projects={projects}
+        activeProjectId={project?.id ?? null}
+        onOpenProject={(id) => void openProject(id)}
+        onDeleteProject={handleDeleteProject}
+        settings={settings}
+        onSettingsSaved={(s) => {
+          setSettings(s);
+          setPostageDraft({ ...s.postage });
+          setFlatFeeDraft(s.flat_fee);
+        }}
+      />
 
       <main className="panel">
         {step === "Start" && (
           <>
-            <h1 className="hero-title">Bericht in einem klaren Flow.</h1>
+            <h1 className="hero-title">Neues Projekt</h1>
             <p className="hero-copy">
-              Anfrage des Landratsamts, fachärztliche Befunde, lokale KI-Analyse –
-              danach ein Editor, der sich wie ein gutes Schreiben anfühlt.
+              Fall anlegen, dann Anfrage und Befunde laden. Bestehende Fälle finden
+              Sie links über die Suche.
             </p>
             <div className="grid-2">
               <div className="field">
@@ -420,16 +438,6 @@ export default function App() {
                 Neues Projekt starten
               </button>
             </div>
-            {projects.length > 0 && (
-              <div className="project-list">
-                {projects.map((p) => (
-                  <button key={p.id} type="button" onClick={() => void openProject(p.id)}>
-                    <strong>{p.patient_label}</strong>
-                    <span>{p.reference || "ohne Aktenzeichen"}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </>
         )}
 
@@ -837,6 +845,15 @@ export default function App() {
 
         {error && <p className="error">{error}</p>}
       </main>
+
+      {undoToast && (
+        <div className="undo-toast" role="status">
+          <span>„{undoToast.label}“ entfernt.</span>
+          <button type="button" className="btn btn-ghost" onClick={() => void handleUndoDelete()}>
+            Rückgängig
+          </button>
+        </div>
+      )}
     </div>
   );
 }

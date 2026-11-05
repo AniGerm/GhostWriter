@@ -197,6 +197,22 @@ def create_project(body: CreateProjectBody) -> dict[str, Any]:
 
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: str) -> dict[str, Any]:
+    if not STORE.is_project_active(project_id):
+        raise HTTPException(404, "Projekt nicht gefunden")
+    return _project_dict(project_id)
+
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: str) -> dict[str, bool]:
+    if not STORE.soft_delete_project(project_id):
+        raise HTTPException(404, "Projekt nicht gefunden")
+    return {"ok": True}
+
+
+@app.post("/api/projects/{project_id}/restore")
+def restore_project(project_id: str) -> dict[str, Any]:
+    if not STORE.restore_project(project_id):
+        raise HTTPException(404, "Projekt nicht gefunden")
     return _project_dict(project_id)
 
 

@@ -129,6 +129,14 @@ class ProjectStore:
                 );
                 """
             )
+            cols = {
+                row[1]
+                for row in self._conn.execute("PRAGMA table_info(projects)").fetchall()
+            }
+            if "deleted_at" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE projects ADD COLUMN deleted_at TEXT"
+                )
             self._conn.commit()
 
     def create_project(self, *, patient_label: str, reference: str) -> Project:
@@ -157,7 +165,11 @@ class ProjectStore:
     def list_projects(self) -> list[Project]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT * FROM projects ORDER BY updated_at DESC"
+                """
+                SELECT * FROM projects
+                WHERE deleted_at IS NULL
+                ORDER BY updated_at DESC
+                """
             ).fetchall()
         return [self._project_from_row(row) for row in rows]
 
@@ -167,6 +179,42 @@ class ProjectStore:
                 "SELECT * FROM projects WHERE id = ?", (project_id,)
             ).fetchone()
         return self._project_from_row(row) if row else None
+
+    def is_project_active(self, project_id: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT deleted_at FROM projects WHERE id = ?",
+                (project_id,),
+            ).fetchone()
+        return row is not None and row["deleted_at"] is None
+
+    def soft_delete_project(self, project_id: str) -> bool:
+        """Markiert ein Projekt als gelöscht; Dateien bleiben für Undo."""
+        with self._lock:
+            cur = self._conn.execute(
+                """
+                UPDATE projects
+                SET deleted_at = ?, updated_at = ?
+                WHERE id = ? AND deleted_at IS NULL
+                """,
+                (_utc_now(), _utc_now(), project_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def restore_project(self, project_id: str) -> bool:
+        """Macht ein Soft-Delete rückgängig."""
+        with self._lock:
+            cur = self._conn.execute(
+                """
+                UPDATE projects
+                SET deleted_at = NULL, updated_at = ?
+                WHERE id = ? AND deleted_at IS NOT NULL
+                """,
+                (_utc_now(), project_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
 
     def _touch(self, project_id: str) -> None:
         self._conn.execute(
