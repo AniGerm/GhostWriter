@@ -24,6 +24,8 @@ type Props = {
   onChange: (html: string) => void;
   /** Aktionen rechts in der Toolbar (Speichern, Vorschau, …) */
   trailing?: ReactNode;
+  bodyPt?: number;
+  headingPt?: number;
 };
 
 function normalizeHtml(value: string): string {
@@ -31,7 +33,7 @@ function normalizeHtml(value: string): string {
   return trimmed.length > 0 ? trimmed : "<p></p>";
 }
 
-export function RichEditor({ html, onChange, trailing }: Props) {
+export function RichEditor({ html, onChange, trailing, bodyPt = 12, headingPt = 14 }: Props) {
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -168,7 +170,10 @@ export function RichEditor({ html, onChange, trailing }: Props) {
         ) : null}
       </div>
       <div className="editor-desk" aria-label="A4-Briefblatt">
-        <div className="editor-canvas">
+        <div
+          className="editor-canvas"
+          style={{ ["--gw-body" as string]: `${bodyPt}pt`, ["--gw-heading" as string]: `${headingPt}pt` }}
+        >
           <EditorContent editor={editor} />
         </div>
       </div>

@@ -15,6 +15,7 @@ export type Project = {
   id: string;
   patient_label: string;
   reference: string;
+  birth_date: string;
   notes: string;
   draft_html: string;
   questions: Question[];
@@ -65,6 +66,8 @@ export type AppSettings = {
   postage: Record<string, number>;
   default_postage_key?: string;
   default_printer?: string;
+  default_font_size?: number;
+  heading_font_size?: number;
 };
 
 export const api = {
@@ -81,11 +84,11 @@ export const api = {
       };
     }>("/api/health"),
   listProjects: () => req<ProjectSummary[]>("/api/projects"),
-  createProject: (patient_label: string, reference = "") =>
+  createProject: (patient_label: string, reference = "", birth_date = "") =>
     req<Project>("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patient_label, reference }),
+      body: JSON.stringify({ patient_label, reference, birth_date }),
     }),
   getProject: (id: string) => req<Project>(`/api/projects/${id}`),
   deleteProject: (id: string) =>

@@ -30,7 +30,7 @@ from ghostwriter.llm.client import OllamaClient, OllamaError, is_allowed_ollama_
 from ghostwriter.llm.pipeline import ReportPipeline
 from ghostwriter.paths import default_data_root, default_spool_dir
 from ghostwriter.preview import (
-    ensure_preview_pages,
+    document_page_count,
     page_preview_path,
     preview_cache_dir,
 )
@@ -101,11 +101,14 @@ class SettingsBody(BaseModel):
     postage: dict[str, float] | None = None
     default_postage_key: str | None = None
     default_printer: str | None = None
+    default_font_size: int | None = Field(default=None, ge=8, le=28)
+    heading_font_size: int | None = Field(default=None, ge=8, le=28)
 
 
 class CreateProjectBody(BaseModel):
     patient_label: str
     reference: str = ""
+    birth_date: str = ""
 
 
 class DocumentPatchBody(BaseModel):
@@ -138,6 +141,7 @@ def _project_dict(project_id: str) -> dict[str, Any]:
         "id": project.id,
         "patient_label": project.patient_label,
         "reference": project.reference,
+        "birth_date": project.birth_date,
         "notes": project.notes,
         "draft_html": project.draft_html,
         "created_at": project.created_at,
@@ -319,6 +323,7 @@ def create_project(body: CreateProjectBody) -> dict[str, Any]:
     project = STORE.create_project(
         patient_label=body.patient_label.strip() or "Ohne Name",
         reference=body.reference.strip(),
+        birth_date=body.birth_date.strip(),
     )
     return _project_dict(project.id)
 
@@ -429,12 +434,12 @@ def document_preview_meta(project_id: str, document_id: str) -> dict[str, Any]:
     if not path.is_file():
         raise HTTPException(404, "Datei fehlt")
     try:
-        pages = ensure_preview_pages(path, preview_cache_dir(DATA_ROOT, document_id))
+        page_count = document_page_count(path)
     except ValueError as exc:
         raise HTTPException(400, "Vorschau nicht möglich") from exc
     except Exception as exc:
         raise HTTPException(500, "Vorschau fehlgeschlagen") from exc
-    return {"page_count": len(pages), "display_name": doc.display_name}
+    return {"page_count": page_count, "display_name": doc.display_name}
 
 
 @app.get("/api/projects/{project_id}/documents/{document_id}/pages/{page_number}")
@@ -457,7 +462,12 @@ def document_page_preview(project_id: str, document_id: str, page_number: int) -
         raise HTTPException(500, "Seitenvorschau fehlgeschlagen") from exc
     if png is None or not png.is_file():
         raise HTTPException(404, "Seite nicht gefunden")
-    return FileResponse(png, media_type="image/png", filename=f"page-{page_number}.png")
+    return FileResponse(
+        png,
+        media_type="image/png",
+        filename=f"page-{page_number}.png",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
 
 
 @app.post("/api/projects/{project_id}/documents")
@@ -605,6 +615,8 @@ def _run_analyze(job_id: str, project_id: str) -> None:
             notes=project.notes,
             letterhead_html=settings.letterhead_html,
             signature_html=settings.signature_html,
+            patient_label=project.patient_label,
+            birth_date=project.birth_date,
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")
@@ -652,6 +664,8 @@ def _run_regenerate(job_id: str, project_id: str, revision_notes: str) -> None:
             signature_html=settings.signature_html,
             current_html=project.draft_html,
             revision_notes=revision_notes,
+            patient_label=project.patient_label,
+            birth_date=project.birth_date,
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")
@@ -722,6 +736,8 @@ def get_settings() -> dict[str, Any]:
         "postage": s.postage,
         "default_postage_key": s.default_postage_key,
         "default_printer": s.default_printer,
+        "default_font_size": s.default_font_size,
+        "heading_font_size": s.heading_font_size,
     }
 
 

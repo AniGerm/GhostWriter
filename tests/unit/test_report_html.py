@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ghostwriter.report_html import (
+    ensure_reply_intro,
     restore_ascii_umlauts,
     rewrite_frage_labels,
     strip_heading_brackets,
@@ -26,6 +27,28 @@ def test_strip_heading_brackets_h1_and_nested() -> None:
     out = strip_heading_brackets(html)
     assert "<h1>Ärztlicher Bericht</h1>" in out
     assert "<h2>3. Operationen</h2>" in out
+
+
+def test_reply_intro_uses_name_and_german_birth_date() -> None:
+    html = ensure_reply_intro(
+        "<h2>Hilfsmittel</h2><ul><li>Rollator.</li></ul>",
+        "Erika Muster",
+        "1970-02-01",
+        letterhead_html="<p>Praxis</p>",
+    )
+    assert html.startswith("<p>Praxis</p>")
+    assert 'class="gw-reply-title"' in html
+    assert "Erika Muster" in html
+    assert "geboren am 01.02.1970" in html
+    assert html.index("gw-reply-lead") < html.index("<h2>Hilfsmittel</h2>")
+
+
+def test_reply_intro_replaces_previous_block() -> None:
+    once = ensure_reply_intro("<p>Text</p>", "A", "2000-01-02")
+    twice = ensure_reply_intro(once, "B", "")
+    assert twice.count("gw-reply-title") == 1
+    assert "betreffend B." in twice
+    assert "geboren" not in twice
 
 
 def test_restore_ascii_umlauts_in_body() -> None:

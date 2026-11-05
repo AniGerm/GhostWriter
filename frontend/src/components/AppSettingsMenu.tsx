@@ -24,6 +24,8 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
   const [printers, setPrinters] = useState<PrinterOption[]>([]);
   const [greeting, setGreeting] = useState("Mit freundlichen Grüßen");
   const [doctor, setDoctor] = useState("");
+  const [bodyPt, setBodyPt] = useState(12);
+  const [headingPt, setHeadingPt] = useState(14);
   const [updateInfo, setUpdateInfo] = useState<{
     phase: string;
     current_version?: string | null;
@@ -44,6 +46,8 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     const parsed = parseSignatureHtml(settings.signature_html || "");
     setGreeting(parsed.greeting || "Mit freundlichen Grüßen");
     setDoctor(parsed.doctor);
+    setBodyPt(settings.default_font_size || 12);
+    setHeadingPt(settings.heading_font_size || 14);
   }, [settings]);
 
   useEffect(() => {
@@ -218,6 +222,8 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
         ollama_model: ollamaModel.trim(),
         default_printer: printer,
         signature_html: composeSignatureHtml(greeting, doctor),
+        default_font_size: bodyPt,
+        heading_font_size: headingPt,
       });
       onSaved(next);
       setSaved(true);
@@ -320,6 +326,28 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
                   value={doctor}
                   onChange={(e) => setDoctor(e.target.value)}
                   placeholder={"Dr. med. …\nFacharzt für …"}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="body-pt">Fließtext (pt)</label>
+                <input
+                  id="body-pt"
+                  type="number"
+                  min={8}
+                  max={28}
+                  value={bodyPt}
+                  onChange={(e) => setBodyPt(Number(e.target.value) || 12)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="heading-pt">Überschriften (pt)</label>
+                <input
+                  id="heading-pt"
+                  type="number"
+                  min={8}
+                  max={28}
+                  value={headingPt}
+                  onChange={(e) => setHeadingPt(Number(e.target.value) || 14)}
                 />
               </div>
               <div className="actions" style={{ marginTop: 8 }}>

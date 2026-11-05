@@ -50,6 +50,7 @@ class Project:
     id: str
     patient_label: str
     reference: str
+    birth_date: str = ""
     notes: str = ""
     draft_html: str = ""
     created_at: str = ""
@@ -146,9 +147,15 @@ class ProjectStore:
                 self._conn.execute(
                     "ALTER TABLE documents ADD COLUMN included INTEGER NOT NULL DEFAULT 1"
                 )
+            if "birth_date" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE projects ADD COLUMN birth_date TEXT NOT NULL DEFAULT ''"
+                )
             self._conn.commit()
 
-    def create_project(self, *, patient_label: str, reference: str) -> Project:
+    def create_project(
+        self, *, patient_label: str, reference: str, birth_date: str = ""
+    ) -> Project:
         project_id = uuid.uuid4().hex
         now = _utc_now()
         project_dir = self.root / "projects" / project_id
@@ -157,16 +164,18 @@ class ProjectStore:
         with self._lock:
             self._conn.execute(
                 """
-                INSERT INTO projects (id, patient_label, reference, notes, draft_html, created_at, updated_at)
-                VALUES (?, ?, ?, '', '', ?, ?)
+                INSERT INTO projects
+                (id, patient_label, reference, birth_date, notes, draft_html, created_at, updated_at)
+                VALUES (?, ?, ?, ?, '', '', ?, ?)
                 """,
-                (project_id, patient_label, reference, now, now),
+                (project_id, patient_label, reference, birth_date.strip(), now, now),
             )
             self._conn.commit()
         return Project(
             id=project_id,
             patient_label=patient_label,
             reference=reference,
+            birth_date=birth_date.strip(),
             created_at=now,
             updated_at=now,
         )
@@ -428,6 +437,7 @@ class ProjectStore:
             id=row["id"],
             patient_label=row["patient_label"],
             reference=row["reference"],
+            birth_date=str(row["birth_date"]) if "birth_date" in row else "",
             notes=row["notes"],
             draft_html=row["draft_html"],
             created_at=row["created_at"],

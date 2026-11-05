@@ -127,12 +127,16 @@ function lineHeights(lines: LineBox[]): number[] {
   });
 }
 
-function makeGap(height: number): HTMLElement {
+function makeGap(): HTMLElement {
   const el = document.createElement("div");
   el.className = "editor-page-gap";
   el.setAttribute("contenteditable", "false");
   el.setAttribute("aria-hidden", "true");
-  el.style.height = `${Math.round(height)}px`;
+  const footer = document.createElement("div");
+  footer.className = "editor-page-gap-footer";
+  const header = document.createElement("div");
+  header.className = "editor-page-gap-header";
+  el.append(footer, header);
   return el;
 }
 
@@ -149,7 +153,7 @@ function computeGapDecorations(view: EditorView): DecorationSet {
     if (pos == null || pos <= 0 || seen.has(pos)) continue;
     seen.add(pos);
     widgets.push(
-      Decoration.widget(pos, () => makeGap(gap), {
+      Decoration.widget(pos, () => makeGap(), {
         side: -1,
         key: `page-gap-${pos}`,
       }),

@@ -59,6 +59,62 @@ def rewrite_frage_labels(html: str) -> str:
     return _BLOCK_RE.sub(_clean, html)
 
 
+_INTRO_RE = re.compile(
+    r'<h3 class="gw-reply-title">.*?</h3>\s*<p class="gw-reply-lead">.*?</p>\s*',
+    re.IGNORECASE | re.DOTALL,
+)
+_ISO_DATE_RE = re.compile(r"\A(\d{4})-(\d{2})-(\d{2})\Z")
+
+
+def _format_birth_date(value: str) -> str:
+    match = _ISO_DATE_RE.match(value.strip())
+    if not match:
+        return value.strip()
+    year, month, day = match.groups()
+    return f"{day}.{month}.{year}"
+
+
+def reply_intro_html(patient_label: str, birth_date: str) -> str:
+    """Kleine Überschrift und ein Satz zum Amtsschreiben."""
+    name = (patient_label.strip() or "die Patientin oder den Patienten").replace("<", "")
+    name = name.replace(">", "").replace("&", "und")
+    born = _format_birth_date(birth_date)
+    if born:
+        lead = f"Antwort auf das Amtsschreiben betreffend {name}, geboren am {born}."
+    else:
+        lead = f"Antwort auf das Amtsschreiben betreffend {name}."
+    return (
+        '<h3 class="gw-reply-title">Stellungnahme</h3>'
+        f'<p class="gw-reply-lead">{lead}</p>'
+    )
+
+
+def strip_reply_intro(html: str) -> str:
+    """Entfernt eine zuvor eingesetzte Stellungnahme."""
+    return _INTRO_RE.sub("", html).strip()
+
+
+def ensure_reply_intro(
+    html: str,
+    patient_label: str,
+    birth_date: str,
+    *,
+    letterhead_html: str = "",
+) -> str:
+    """Setzt die Stellungnahme hinter den Briefkopf, ohne sie zu doppeln."""
+    cleaned = _INTRO_RE.sub("", html).strip()
+    intro = reply_intro_html(patient_label, birth_date)
+    head = letterhead_html.strip()
+    if head and cleaned.startswith(head):
+        rest = cleaned[len(head) :].lstrip()
+    elif head and head in cleaned:
+        rest = cleaned.replace(head, "", 1).strip()
+    else:
+        rest = cleaned
+    parts = [part for part in (head, intro, rest) if part]
+    return "\n".join(parts)
+
+
 def strip_heading_brackets(html: str) -> str:
     """Entfernt eckige Klammern um Stichwörter in Überschriften (h1-h3)."""
 

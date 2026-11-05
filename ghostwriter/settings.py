@@ -36,6 +36,7 @@ class AppSettings:
     spool_dir: str = ""
     default_font: str = "Liberation Serif"
     default_font_size: int = 12
+    heading_font_size: int = 14
     github_repo: str = DEFAULT_GITHUB_REPO
     check_updates_on_startup: bool = True
 

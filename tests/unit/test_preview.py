@@ -39,6 +39,23 @@ def test_rotated_pdf_bitmap_matches_displayed_page(tmp_path: Path) -> None:
     assert (image.width > image.height) == (shown_w > shown_h)
 
 
+def test_page_preview_renders_only_the_requested_page(tmp_path: Path) -> None:
+    from pypdf import PdfWriter
+
+    src = tmp_path / "multi.pdf"
+    writer = PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(width=595, height=842)
+    with src.open("wb") as handle:
+        writer.write(handle)
+    cache = tmp_path / "cache"
+    first = page_preview_path(src, cache, 1)
+    assert first is not None and first.name == "0001.png"
+    assert sorted(p.name for p in cache.glob("*.png")) == ["0001.png"]
+    again = page_preview_path(src, cache, 1)
+    assert again == first
+
+
 def test_page_preview_path_is_one_based(tmp_path: Path) -> None:
     src = tmp_path / "scan.png"
     Image.new("RGB", (40, 60), color=(200, 200, 200)).save(src)

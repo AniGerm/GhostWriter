@@ -7,9 +7,11 @@ from typing import Protocol
 
 from ghostwriter.llm import prompts
 from ghostwriter.report_html import (
+    ensure_reply_intro,
     restore_ascii_umlauts,
     rewrite_frage_labels,
     strip_heading_brackets,
+    strip_reply_intro,
 )
 from ghostwriter.signature import apply_signature, strip_trailing_signature
 from ghostwriter.store import Question
@@ -78,6 +80,8 @@ class ReportPipeline:
         signature_html: str = "",
         current_html: str = "",
         revision_notes: str = "",
+        patient_label: str = "",
+        birth_date: str = "",
     ) -> str:
         q_lines: list[str] = []
         for q in questions:
@@ -97,7 +101,7 @@ class ReportPipeline:
         ]
         if current_html.strip():
             # Fuß (Signatur) nie als editierbaren Entwurf mitschicken - wird danach gesetzt
-            draft_body = strip_trailing_signature(current_html.strip())
+            draft_body = strip_reply_intro(strip_trailing_signature(current_html.strip()))
             parts.append(f"Aktueller Entwurf (HTML):\n{draft_body}")
         if revision_notes.strip():
             parts.append(f"Änderungswünsche / Revision:\n{revision_notes.strip()}")
@@ -116,5 +120,11 @@ class ReportPipeline:
             elif head in html:
                 html = html.replace(head, "", 1).strip()
             html = f"{head}\n{html}" if html else head
+        html = ensure_reply_intro(
+            html,
+            patient_label,
+            birth_date,
+            letterhead_html=letterhead_html,
+        )
         html = apply_signature(html, signature_html)
         return html

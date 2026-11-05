@@ -15,6 +15,8 @@ type Props = {
   draftHtml: string;
   selected: Record<string, boolean>;
   onChangeSelected: (next: Record<string, boolean>) => void;
+  bodyPt?: number;
+  headingPt?: number;
 };
 
 export function estimateLetterPages(html: string): number {
@@ -82,7 +84,14 @@ function selectionClass(on: boolean): string {
   return on ? "a4-page is-included" : "a4-page is-excluded";
 }
 
-export function PrintPreview({ project, draftHtml, selected, onChangeSelected }: Props) {
+export function PrintPreview({
+  project,
+  draftHtml,
+  selected,
+  onChangeSelected,
+  bodyPt = 12,
+  headingPt = 14,
+}: Props) {
   const [letterBodies, setLetterBodies] = useState<string[]>(() => [
     draftHtml.trim() || "<p><em>Kein Anschreiben vorhanden.</em></p>",
   ]);
@@ -219,7 +228,11 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
         </p>
       </aside>
 
-      <section className="preview-canvas" aria-label="Druckvorschau">
+      <section
+        className="preview-canvas"
+        aria-label="Druckvorschau"
+        style={{ ["--gw-body" as string]: `${bodyPt}pt`, ["--gw-heading" as string]: `${headingPt}pt` }}
+      >
         {letterPages.map((page, index) => {
           const on = Boolean(selected[page.id]);
           const body = letterBodies[index] || "";
@@ -270,7 +283,8 @@ export function PrintPreview({ project, draftHtml, selected, onChangeSelected }:
                   <img
                     src={src}
                     alt=""
-                    loading="lazy"
+                    loading={page.pageNumber <= 1 ? "eager" : "lazy"}
+                    decoding="async"
                     onError={(event) => {
                       const img = event.currentTarget;
                       img.style.display = "none";

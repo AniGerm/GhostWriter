@@ -38,6 +38,7 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [patient, setPatient] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [draft, setDraft] = useState("");
@@ -234,7 +235,11 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      const created = await api.createProject(patient.trim() || "Neuer Fall", reference.trim());
+      const created = await api.createProject(
+        patient.trim() || "Neuer Fall",
+        reference.trim(),
+        birthDate,
+      );
       setProject(created);
       setNotes(created.notes);
       setDraft(created.draft_html);
@@ -253,6 +258,7 @@ export default function App() {
     try {
       const loaded = await loadProjectDraft(id);
       setPatient(loaded.patient_label);
+      setBirthDate(loaded.birth_date || "");
       setReference(loaded.reference);
       setCost(loaded.cost);
       const hasAnfrage = loaded.documents.some((d) => d.role === "anfrage");
@@ -442,8 +448,9 @@ export default function App() {
       const html = `<!doctype html><html lang="de"><head><meta charset="utf-8" />
 <title>Anschreiben</title>
 <style>
-  body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; margin: 25mm 23mm; color: #111; }
-  h1,h2,h3 { font-family: system-ui, sans-serif; }
+  body { font-family: "Times New Roman", serif; font-size: ${settings?.default_font_size || 12}pt; line-height: 1.5; margin: 25mm 23mm; color: #111; }
+  h1,h2 { font-family: system-ui, sans-serif; font-size: ${settings?.heading_font_size || 14}pt; }
+  h3 { font-family: system-ui, sans-serif; font-size: ${settings?.default_font_size || 12}pt; }
   @media print { body { margin: 25mm 23mm; } }
 </style></head><body>${draft}</body></html>`;
       const device = settings?.default_printer || "";
@@ -533,6 +540,15 @@ export default function App() {
                   value={patient}
                   onChange={(e) => setPatient(e.target.value)}
                   placeholder="z. B. Fall 2026-041"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="birth-date">Geburtsdatum</label>
+                <input
+                  id="birth-date"
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
                 />
               </div>
               <div className="field">
@@ -712,6 +728,8 @@ export default function App() {
               key={`${project.id}-${draftEpoch}`}
               html={draft}
               onChange={setDraft}
+              bodyPt={settings?.default_font_size || 12}
+              headingPt={settings?.heading_font_size || 14}
               trailing={
                 <>
                   {project.questions.length > 0 && (
@@ -828,40 +846,45 @@ export default function App() {
         )}
 
         {step === "Vorschau" && project && (
-          <>
-            <h1 className="hero-title">Druckvorschau</h1>
-            <p className="hero-copy">
-              Übersicht aller Seiten: Anschreiben und Facharztanhänge. Seiten an- oder
-              abwählen, dann drucken oder zu den Kosten weitergehen.
-            </p>
+          <div className="editor-shell">
+            <div className="editor-toolbar" role="toolbar" aria-label="Druckvorschau">
+              <strong className="preview-toolbar-title">Druckvorschau</strong>
+              <div className="editor-toolbar-actions">
+                <button
+                  type="button"
+                  className="toolbar-action"
+                  onClick={() => setStep("Schreiben")}
+                >
+                  Zurück
+                </button>
+                <button type="button" className="toolbar-action" onClick={() => printAndFinish()}>
+                  Drucken & beenden
+                </button>
+                <button
+                  type="button"
+                  className="toolbar-action toolbar-action-primary"
+                  onClick={() => {
+                    setPages(countSelectedPages(pageSelection));
+                    setCost(null);
+                    setStep("Kosten");
+                  }}
+                >
+                  Weiter zu Kosten
+                </button>
+              </div>
+            </div>
             <PrintPreview
               project={project}
               draftHtml={draft}
               selected={pageSelection}
+              bodyPt={settings?.default_font_size || 12}
+              headingPt={settings?.heading_font_size || 14}
               onChangeSelected={(next) => {
                 setPageSelection(next);
                 setPages(countSelectedPages(next));
               }}
             />
-            <div className="actions">
-              <button className="btn btn-ghost" onClick={() => setStep("Schreiben")}>
-                Zurück
-              </button>
-              <button className="btn btn-ghost" onClick={() => printAndFinish()}>
-                Drucken & beenden
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setPages(countSelectedPages(pageSelection));
-                  setCost(null);
-                  setStep("Kosten");
-                }}
-              >
-                Weiter zu Kosten
-              </button>
-            </div>
-          </>
+          </div>
         )}
 
         {step === "Kosten" && project && (
