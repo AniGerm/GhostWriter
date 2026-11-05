@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from ghostwriter.report_html import (
     ensure_reply_intro,
     extract_patient_identity,
@@ -38,23 +40,55 @@ def test_reply_intro_uses_name_and_german_birth_date() -> None:
         "1970-02-01",
         letterhead_html="<p>Praxis</p>",
         subjects=["Wirbelsäule", "Diabetes mellitus"],
+        place="Musterstadt",
+        issued_on=date(2026, 11, 5),
     )
     assert html.startswith("<p>Praxis</p>")
-    assert 'class="gw-reply-title"' in html
+    assert ">Ärztlicher Befundbericht<" in html
+    assert ">Stellungnahme<" not in html
+    assert "font-size:14pt" in html
+    assert "font-weight:700" in html
+    assert "text-decoration:underline" in html
+    assert 'class="gw-reply-place"' in html
+    assert "text-align:right" in html
+    assert "Musterstadt" in html
+    assert "05.11.2026" in html
     assert "Grades der Behinderung" in html
     assert "Erika Muster" in html
     assert "geboren am 01.02.1970" in html
-    assert "Wirbelsäule" in html
-    assert "Diabetes mellitus" in html
+    assert "Wirbelsäule" not in html
+    assert "Das Amtsschreiben betrifft" not in html
     assert html.index("gw-reply-lead") < html.index("<h2>Hilfsmittel</h2>")
 
 
 def test_reply_intro_replaces_previous_block() -> None:
-    once = ensure_reply_intro("<p>Text</p>", "A", "2000-01-02")
-    twice = ensure_reply_intro(once, "B", "")
+    once = ensure_reply_intro(
+        "<p>Text</p>",
+        "A",
+        "2000-01-02",
+        place="Köln",
+        issued_on=date(2026, 11, 5),
+    )
+    twice = ensure_reply_intro(once, "B", "", place="Bonn", issued_on=date(2026, 11, 5))
     assert twice.count("gw-reply-title") == 1
+    assert twice.count("gw-reply-place") == 1
     assert "für B." in twice
     assert "geboren" not in twice
+    assert "Bonn" in twice
+    assert "Köln" not in twice
+
+
+def test_reply_intro_replaces_legacy_title() -> None:
+    old = (
+        '<h3 class="gw-reply-title">Stellungnahme</h3>'
+        '<p class="gw-reply-lead">Alt.</p><p>Text</p>'
+    )
+    html = ensure_reply_intro(old, "B", "", place="Köln", issued_on=date(2026, 11, 5))
+    assert html.count("gw-reply-title") == 1
+    assert "Ärztlicher Befundbericht" in html
+    assert ">Stellungnahme<" not in html
+    assert "Köln" in html
+    assert html.endswith("<p>Text</p>")
 
 
 def test_extract_patient_identity_from_letter() -> None:

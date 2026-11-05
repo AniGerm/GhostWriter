@@ -51,6 +51,7 @@ SPELL_SUGGESTIONS = "Vorschläge"
 
 OLLAMA_MODEL = "Ollama-Modell"
 OLLAMA_CTX = "Kontextlänge"
+DOCUMENT_PLACE = "Ort der Erstellung"
 LETTERHEAD = "Briefkopf (HTML)"
 SIGNATURE = "Signatur (HTML)"
 COST_SETTINGS = "Kosteneinstellungen"

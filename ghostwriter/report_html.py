@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 
 _HEADING_RE = re.compile(
     r"(<(h[1-3])\b[^>]*>)(.*?)(</\2>)",
@@ -60,7 +61,9 @@ def rewrite_frage_labels(html: str) -> str:
 
 
 _INTRO_RE = re.compile(
-    r'<h3 class="gw-reply-title">.*?</h3>\s*<p class="gw-reply-lead">.*?</p>\s*',
+    r'<h3 class="gw-reply-title"[^>]*>.*?</h3>\s*'
+    r'(?:<p class="gw-reply-place"[^>]*>.*?</p>\s*)?'
+    r'<p class="gw-reply-lead"[^>]*>.*?</p>\s*',
     re.IGNORECASE | re.DOTALL,
 )
 _ISO_DATE_RE = re.compile(r"\A(\d{4})-(\d{2})-(\d{2})\Z")
@@ -140,41 +143,34 @@ def resolve_reply_identity(
     return name, birth_date.strip() or found_birth
 
 
-def _subject_phrase(subjects: list[str]) -> str:
-    clean = [_plain(item) for item in subjects if item.strip()]
-    unique: list[str] = []
-    for item in clean:
-        if item not in unique:
-            unique.append(item)
-    if not unique:
-        return ""
-    if len(unique) == 1:
-        listed = unique[0]
-    elif len(unique) == 2:
-        listed = f"{unique[0]} und {unique[1]}"
-    else:
-        listed = ", ".join(unique[:-1]) + " und " + unique[-1]
-    return f" Das Amtsschreiben betrifft: {listed}."
-
-
 def reply_intro_html(
     patient_label: str,
     birth_date: str,
     subjects: list[str] | None = None,
+    *,
+    place: str = "",
+    issued_on: date | None = None,
 ) -> str:
-    """Kleine Überschrift und ein Satz zum GdB-Antrag."""
+    """Überschrift, rechts Ort und Datum, dann ein Satz zum GdB-Antrag."""
+    del subjects
     name = _plain(patient_label) or "die Patientin oder den Patienten"
     born = _format_birth_date(birth_date)
     person = f"{name}, geboren am {born}" if born else name
     lead = (
         "Ärztliche Stellungnahme zum Antrag auf Feststellung eines Grades der Behinderung "
         f"für {person}."
-        f"{_subject_phrase(subjects or [])}"
     )
-    return (
-        '<h3 class="gw-reply-title">Stellungnahme</h3>'
-        f'<p class="gw-reply-lead">{lead}</p>'
+    when = issued_on or date.today()
+    lines = [city for city in (_plain(place),) if city]
+    lines.append(when.strftime("%d.%m.%Y"))
+    title = (
+        '<h3 class="gw-reply-title" style="font-size:14pt;font-weight:700;'
+        'text-decoration:underline">Ärztlicher Befundbericht</h3>'
     )
+    placed = (
+        '<p class="gw-reply-place" style="text-align:right">' + "<br>".join(lines) + "</p>"
+    )
+    return f"{title}{placed}<p class=\"gw-reply-lead\">{lead}</p>"
 
 
 def strip_reply_intro(html: str) -> str:
@@ -189,10 +185,18 @@ def ensure_reply_intro(
     *,
     letterhead_html: str = "",
     subjects: list[str] | None = None,
+    place: str = "",
+    issued_on: date | None = None,
 ) -> str:
-    """Setzt die Stellungnahme hinter den Briefkopf, ohne sie zu doppeln."""
+    """Setzt Überschrift, Ort, Datum und den GdB-Satz hinter den Briefkopf."""
     cleaned = _INTRO_RE.sub("", html).strip()
-    intro = reply_intro_html(patient_label, birth_date, subjects)
+    intro = reply_intro_html(
+        patient_label,
+        birth_date,
+        subjects,
+        place=place,
+        issued_on=issued_on,
+    )
     head = letterhead_html.strip()
     if head and cleaned.startswith(head):
         rest = cleaned[len(head) :].lstrip()

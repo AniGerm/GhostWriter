@@ -84,6 +84,7 @@ class ReportPipeline:
         patient_label: str = "",
         birth_date: str = "",
         source_texts: list[str] | None = None,
+        document_place: str = "",
     ) -> str:
         q_lines: list[str] = []
         for q in questions:
@@ -127,13 +128,12 @@ class ReportPipeline:
             birth_date,
             *(source_texts or []),
         )
-        subjects = [q.keyword.strip() or q.text.strip() for q in questions if q.keyword or q.text]
         html = ensure_reply_intro(
             html,
             name,
             born,
             letterhead_html=letterhead_html,
-            subjects=subjects[:6],
+            place=document_place,
         )
         html = apply_signature(html, signature_html)
         return html

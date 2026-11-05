@@ -17,6 +17,13 @@ def test_roundtrip(tmp_path: Path) -> None:
     assert loaded.ollama_model == "gemma3:12b"
 
 
+def test_document_place_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    save_settings(path, AppSettings(document_place="Musterstadt"))
+    loaded = load_settings(path)
+    assert loaded.document_place == "Musterstadt"
+
+
 def test_missing_file_returns_defaults(tmp_path: Path) -> None:
     loaded = load_settings(tmp_path / "missing.json")
     assert loaded.flat_fee == 25.0

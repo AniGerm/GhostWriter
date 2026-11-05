@@ -72,6 +72,7 @@ class GenerateWorker(QObject):
                 notes=self._notes,
                 letterhead_html=self._settings.letterhead_html,
                 signature_html=self._settings.signature_html,
+                document_place=self._settings.document_place,
             )
             self.finished.emit(html)
         except Exception as exc:

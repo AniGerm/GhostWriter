@@ -26,6 +26,7 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
   const [doctor, setDoctor] = useState("");
   const [bodyPt, setBodyPt] = useState(12);
   const [headingPt, setHeadingPt] = useState(14);
+  const [documentPlace, setDocumentPlace] = useState("");
   const [updateInfo, setUpdateInfo] = useState<{
     phase: string;
     current_version?: string | null;
@@ -48,6 +49,7 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
     setDoctor(parsed.doctor);
     setBodyPt(settings.default_font_size || 12);
     setHeadingPt(settings.heading_font_size || 14);
+    setDocumentPlace(settings.document_place || "");
   }, [settings]);
 
   useEffect(() => {
@@ -224,6 +226,7 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
         signature_html: composeSignatureHtml(greeting, doctor),
         default_font_size: bodyPt,
         heading_font_size: headingPt,
+        document_place: documentPlace.trim(),
       });
       onSaved(next);
       setSaved(true);
@@ -309,6 +312,16 @@ export function AppSettingsMenu({ settings, onSaved }: Props) {
 
             <section>
               <h2>Briefabschluss</h2>
+              <div className="field">
+                <label htmlFor="document-place">Ort</label>
+                <input
+                  id="document-place"
+                  value={documentPlace}
+                  onChange={(e) => setDocumentPlace(e.target.value)}
+                  placeholder="z. B. Musterstadt"
+                />
+                <p className="hint">Ort, an dem die Schreiben erstellt werden. Steht rechts über dem Datum.</p>
+              </div>
               <div className="field">
                 <label htmlFor="signature-greeting">Grußformel</label>
                 <input

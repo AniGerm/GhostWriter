@@ -68,6 +68,7 @@ export type AppSettings = {
   default_printer?: string;
   default_font_size?: number;
   heading_font_size?: number;
+  document_place?: string;
 };
 
 export const api = {

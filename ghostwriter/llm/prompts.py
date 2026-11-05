@@ -39,8 +39,9 @@ Regeln:
 - Echte deutsche Umlaute und ß verwenden (ä ö ü Ä Ö Ü ß).
   VERBOTEN: ae/oe/ue statt Umlaute (falsch: Gefuehle, fuer, ueber;
   richtig: Gefühle, für, über).
-- KEINEN Briefkopf, KEINE Grußformel/Signatur und KEINE Einleitung
-  „Stellungnahme / Antwort auf das Amtsschreiben“ - das setzt die App.
+- KEINEN Briefkopf, KEINE Grußformel/Signatur und KEINE Einleitung.
+  Überschrift „Ärztlicher Befundbericht“, Ort, Datum und den Satz zur
+  ärztlichen Stellungnahme setzt die App.
 - Keine <style>-Blöcke, keine Seitenränder/Margins im HTML (Layout kommt von der App).
 - Sprache: Deutsch, sachlich, ärztlich.
 - Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten

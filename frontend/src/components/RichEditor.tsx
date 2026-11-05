@@ -1,9 +1,11 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
+import { FontSize, TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { BlockClass } from "../blockClass";
 import { PageGaps } from "../pageGaps";
 import { normalizeReportHtml } from "../stripHeadingBrackets";
 import {
@@ -51,6 +53,9 @@ export function RichEditor({
         heading: { levels: [1, 2, 3] },
       }),
       Underline,
+      TextStyle,
+      FontSize,
+      BlockClass,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({
         placeholder: "Ihr Antwortschreiben erscheint hier …",
@@ -74,7 +79,36 @@ export function RichEditor({
     editor.commands.setContent(incoming, { emitUpdate: false });
   }, [html, editor]);
 
+  const [markPt, setMarkPt] = useState(bodyPt);
+  const selectionRef = useRef<{ from: number; to: number } | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    const sync = () => {
+      const raw = editor.getAttributes("textStyle").fontSize;
+      const parsed = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
+      setMarkPt(Number.isFinite(parsed) && parsed > 0 ? parsed : bodyPt);
+    };
+    editor.on("selectionUpdate", sync);
+    editor.on("transaction", sync);
+    return () => {
+      editor.off("selectionUpdate", sync);
+      editor.off("transaction", sync);
+    };
+  }, [editor, bodyPt]);
+
   if (!editor) return null;
+
+  function applyMarkSize(pt: number) {
+    const saved = selectionRef.current;
+    let chain = editor!.chain().focus();
+    if (saved && saved.from !== saved.to) {
+      chain = chain.setTextSelection(saved);
+    }
+    chain.setFontSize(`${pt}pt`).run();
+    const { from, to } = editor!.state.selection;
+    selectionRef.current = { from, to };
+  }
 
   return (
     <div className="editor-shell">
@@ -172,6 +206,31 @@ export function RichEditor({
             <IconAlignJustify />
           </button>
           <span className="toolbar-sep" />
+          <label className="toolbar-size">
+            Markierung
+            <input
+              type="number"
+              min={8}
+              max={28}
+              aria-label="Schriftgröße der Markierung"
+              title="Größe des markierten Textes"
+              value={markPt}
+              onPointerDown={() => {
+                const { from, to } = editor.state.selection;
+                selectionRef.current = { from, to };
+              }}
+              onFocus={() => {
+                const { from, to } = editor.state.selection;
+                if (from !== to) selectionRef.current = { from, to };
+              }}
+              onChange={(event) => {
+                const pt = Number(event.target.value);
+                if (!Number.isFinite(pt)) return;
+                setMarkPt(pt);
+                applyMarkSize(pt);
+              }}
+            />
+          </label>
           <label className="toolbar-size">
             Text
             <input

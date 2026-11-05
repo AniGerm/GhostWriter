@@ -458,6 +458,8 @@ export default function App() {
   body { font-family: "Times New Roman", serif; font-size: ${settings?.default_font_size || 12}pt; line-height: 1.5; margin: 25mm 23mm; color: #111; }
   h1,h2 { font-family: system-ui, sans-serif; font-size: ${settings?.heading_font_size || 14}pt; }
   h3 { font-family: system-ui, sans-serif; font-size: ${settings?.default_font_size || 12}pt; }
+  h3.gw-reply-title { font-size: 14pt; font-weight: 700; text-decoration: underline; }
+  p.gw-reply-place { text-align: right; }
   @media print { body { margin: 25mm 23mm; } }
 </style></head><body>${draft}</body></html>`;
       const device = settings?.default_printer || "";

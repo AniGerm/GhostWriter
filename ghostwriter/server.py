@@ -103,6 +103,7 @@ class SettingsBody(BaseModel):
     default_printer: str | None = None
     default_font_size: int | None = Field(default=None, ge=8, le=28)
     heading_font_size: int | None = Field(default=None, ge=8, le=28)
+    document_place: str | None = None
 
 
 class CreateProjectBody(BaseModel):
@@ -618,6 +619,7 @@ def _run_analyze(job_id: str, project_id: str) -> None:
             patient_label=project.patient_label,
             birth_date=project.birth_date,
             source_texts=[anfrage.extracted_text, *[d.extracted_text for d in findings]],
+            document_place=settings.document_place,
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")
@@ -675,6 +677,7 @@ def _run_regenerate(job_id: str, project_id: str, revision_notes: str) -> None:
             patient_label=project.patient_label,
             birth_date=project.birth_date,
             source_texts=source_texts,
+            document_place=settings.document_place,
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")
@@ -747,6 +750,7 @@ def get_settings() -> dict[str, Any]:
         "default_printer": s.default_printer,
         "default_font_size": s.default_font_size,
         "heading_font_size": s.heading_font_size,
+        "document_place": s.document_place,
     }
 
 
