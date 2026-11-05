@@ -74,15 +74,103 @@ def _format_birth_date(value: str) -> str:
     return f"{day}.{month}.{year}"
 
 
-def reply_intro_html(patient_label: str, birth_date: str) -> str:
-    """Kleine Überschrift und ein Satz zum Amtsschreiben."""
-    name = (patient_label.strip() or "die Patientin oder den Patienten").replace("<", "")
-    name = name.replace(">", "").replace("&", "und")
-    born = _format_birth_date(birth_date)
-    if born:
-        lead = f"Antwort auf das Amtsschreiben betreffend {name}, geboren am {born}."
+_NAME_LABEL_RE = re.compile(
+    r"(?:Patient(?:in)?|Name|Herrn|Frau)\s*[:\s]\s*"
+    r"([A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+){0,2})"
+)
+_NAME_BORN_RE = re.compile(
+    r"\b([A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+){1,2})\s*,?\s*(?:geboren|geb\.?)"
+)
+_BIRTH_RE = re.compile(
+    r"(?:geboren|geb\.?)\s*(?:am\s*)?(\d{1,2})\.(\d{1,2})\.(\d{4})",
+    re.IGNORECASE,
+)
+_HTML_ESC = str.maketrans({"<": "", ">": "", "&": "und"})
+
+
+def _plain(value: str) -> str:
+    return value.translate(_HTML_ESC).strip()
+
+
+_TITLE_RE = re.compile(r"^(?:Herrn|Herr|Frau)\s+", re.IGNORECASE)
+
+
+def _clean_name(value: str) -> str:
+    return _TITLE_RE.sub("", value.strip().rstrip(",")).strip()
+
+
+def extract_patient_identity(text: str) -> tuple[str, str]:
+    """Liest Name und Geburtsdatum aus Anfrage oder Befund. Datum als ISO."""
+    name = ""
+    born_match = _NAME_BORN_RE.search(text)
+    if born_match:
+        name = _clean_name(born_match.group(1))
+    if not name:
+        label_match = _NAME_LABEL_RE.search(text)
+        if label_match:
+            name = _clean_name(label_match.group(1))
+    birth = ""
+    date_match = _BIRTH_RE.search(text)
+    if date_match:
+        day, month, year = date_match.groups()
+        birth = f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+    return name, birth
+
+
+def resolve_reply_identity(
+    patient_label: str,
+    birth_date: str,
+    *sources: str,
+) -> tuple[str, str]:
+    """Bevorzugt einen vollständigen Namen aus den Unterlagen."""
+    found_name = ""
+    found_birth = ""
+    for source in sources:
+        if not source.strip():
+            continue
+        name, born = extract_patient_identity(source)
+        if name and not found_name:
+            found_name = name
+        if born and not found_birth:
+            found_birth = born
+    label = patient_label.strip()
+    name = label or "die Patientin oder den Patienten"
+    if found_name and (not label or len(found_name) > len(label)):
+        name = found_name
+    return name, birth_date.strip() or found_birth
+
+
+def _subject_phrase(subjects: list[str]) -> str:
+    clean = [_plain(item) for item in subjects if item.strip()]
+    unique: list[str] = []
+    for item in clean:
+        if item not in unique:
+            unique.append(item)
+    if not unique:
+        return ""
+    if len(unique) == 1:
+        listed = unique[0]
+    elif len(unique) == 2:
+        listed = f"{unique[0]} und {unique[1]}"
     else:
-        lead = f"Antwort auf das Amtsschreiben betreffend {name}."
+        listed = ", ".join(unique[:-1]) + " und " + unique[-1]
+    return f" Das Amtsschreiben betrifft: {listed}."
+
+
+def reply_intro_html(
+    patient_label: str,
+    birth_date: str,
+    subjects: list[str] | None = None,
+) -> str:
+    """Kleine Überschrift und ein Satz zum GdB-Antrag."""
+    name = _plain(patient_label) or "die Patientin oder den Patienten"
+    born = _format_birth_date(birth_date)
+    person = f"{name}, geboren am {born}" if born else name
+    lead = (
+        "Ärztliche Stellungnahme zum Antrag auf Feststellung eines Grades der Behinderung "
+        f"für {person}."
+        f"{_subject_phrase(subjects or [])}"
+    )
     return (
         '<h3 class="gw-reply-title">Stellungnahme</h3>'
         f'<p class="gw-reply-lead">{lead}</p>'
@@ -100,10 +188,11 @@ def ensure_reply_intro(
     birth_date: str,
     *,
     letterhead_html: str = "",
+    subjects: list[str] | None = None,
 ) -> str:
     """Setzt die Stellungnahme hinter den Briefkopf, ohne sie zu doppeln."""
     cleaned = _INTRO_RE.sub("", html).strip()
-    intro = reply_intro_html(patient_label, birth_date)
+    intro = reply_intro_html(patient_label, birth_date, subjects)
     head = letterhead_html.strip()
     if head and cleaned.startswith(head):
         rest = cleaned[len(head) :].lstrip()
@@ -127,6 +216,14 @@ def strip_heading_brackets(html: str) -> str:
     return _HEADING_RE.sub(_clean, html)
 
 
+def _keep_ascii_ue(word: str) -> bool:
+    """Französisch/Latein -uell und Quer/bequem bleiben mit ue."""
+    low = word.lower()
+    if "uell" in low:
+        return True
+    return low.startswith(("quer", "quelle", "bequem"))
+
+
 def _restore_umlauts_in_text(text: str) -> str:
     if not text:
         return text
@@ -136,10 +233,11 @@ def _restore_umlauts_in_text(text: str) -> str:
         if word in _UMLAUT_DENY:
             return word
         fixed = word
-        fixed = _UE_RE.sub("Ü", fixed)
+        if not _keep_ascii_ue(word):
+            fixed = _UE_RE.sub("Ü", fixed)
+            fixed = _ue_RE.sub("ü", fixed)
         fixed = _OE_RE.sub("Ö", fixed)
         fixed = _AE_RE.sub("Ä", fixed)
-        fixed = _ue_RE.sub("ü", fixed)
         fixed = _oe_RE.sub("ö", fixed)
         fixed = _ae_RE.sub("ä", fixed)
         return fixed

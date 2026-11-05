@@ -10,7 +10,6 @@ import {
   buildPreviewPages,
   countSelectedPages,
   letterIncluded,
-  selectedBefundDocumentIds,
 } from "./components/PrintPreview";
 import { RichEditor } from "./components/RichEditor";
 
@@ -339,6 +338,14 @@ export default function App() {
     }
   }
 
+  function setTypeSize(kind: "body" | "heading", raw: number) {
+    const pt = Math.min(28, Math.max(8, Math.round(raw) || (kind === "body" ? 12 : 14)));
+    const patch =
+      kind === "body" ? { default_font_size: pt } : { heading_font_size: pt };
+    setSettings((current) => (current ? { ...current, ...patch } : current));
+    void api.putSettings(patch).then(setSettings).catch(() => undefined);
+  }
+
   async function saveDraft() {
     if (!project) return;
     setBusy(true);
@@ -475,10 +482,6 @@ export default function App() {
           popup.print();
         }
       }
-    }
-    const pagesList = buildPreviewPages(project, draft);
-    for (const docId of selectedBefundDocumentIds(pagesList, pageSelection)) {
-      window.open(api.documentUrl(project.id, docId), "_blank", "noopener,noreferrer");
     }
   }
 
@@ -730,6 +733,8 @@ export default function App() {
               onChange={setDraft}
               bodyPt={settings?.default_font_size || 12}
               headingPt={settings?.heading_font_size || 14}
+              onBodyPt={(pt) => setTypeSize("body", pt)}
+              onHeadingPt={(pt) => setTypeSize("heading", pt)}
               trailing={
                 <>
                   {project.questions.length > 0 && (

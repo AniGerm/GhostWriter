@@ -617,6 +617,7 @@ def _run_analyze(job_id: str, project_id: str) -> None:
             signature_html=settings.signature_html,
             patient_label=project.patient_label,
             birth_date=project.birth_date,
+            source_texts=[anfrage.extracted_text, *[d.extracted_text for d in findings]],
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")
@@ -656,6 +657,13 @@ def _run_regenerate(job_id: str, project_id: str, revision_notes: str) -> None:
             summary = pipe.summarize_finding(doc.extracted_text, display_name=doc.display_name)
             summaries.append(summary.summary)
         _set_job(job_id, phase="composing", percent=80, message="Schreiben überarbeiten …")
+        anfrage = next(
+            (d for d in docs if d.role is DocumentRole.ANFRAGE and d.included),
+            None,
+        )
+        source_texts = [d.extracted_text for d in findings]
+        if anfrage is not None and anfrage.extracted_text.strip():
+            source_texts.insert(0, anfrage.extracted_text)
         html = pipe.compose_report(
             questions=questions,
             finding_summaries=summaries,
@@ -666,6 +674,7 @@ def _run_regenerate(job_id: str, project_id: str, revision_notes: str) -> None:
             revision_notes=revision_notes,
             patient_label=project.patient_label,
             birth_date=project.birth_date,
+            source_texts=source_texts,
         )
         STORE.set_draft_html(project_id, html)
         _set_job(job_id, phase="done", percent=100, message="Fertig")

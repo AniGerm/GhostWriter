@@ -26,6 +26,8 @@ type Props = {
   trailing?: ReactNode;
   bodyPt?: number;
   headingPt?: number;
+  onBodyPt?: (pt: number) => void;
+  onHeadingPt?: (pt: number) => void;
 };
 
 function normalizeHtml(value: string): string {
@@ -33,7 +35,15 @@ function normalizeHtml(value: string): string {
   return trimmed.length > 0 ? trimmed : "<p></p>";
 }
 
-export function RichEditor({ html, onChange, trailing, bodyPt = 12, headingPt = 14 }: Props) {
+export function RichEditor({
+  html,
+  onChange,
+  trailing,
+  bodyPt = 12,
+  headingPt = 14,
+  onBodyPt,
+  onHeadingPt,
+}: Props) {
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -161,6 +171,29 @@ export function RichEditor({ html, onChange, trailing, bodyPt = 12, headingPt = 
           >
             <IconAlignJustify />
           </button>
+          <span className="toolbar-sep" />
+          <label className="toolbar-size">
+            Text
+            <input
+              type="number"
+              min={8}
+              max={28}
+              aria-label="Schriftgröße Text"
+              value={bodyPt}
+              onChange={(event) => onBodyPt?.(Number(event.target.value))}
+            />
+          </label>
+          <label className="toolbar-size">
+            Überschrift
+            <input
+              type="number"
+              min={8}
+              max={28}
+              aria-label="Schriftgröße Überschrift"
+              value={headingPt}
+              onChange={(event) => onHeadingPt?.(Number(event.target.value))}
+            />
+          </label>
         </div>
         {trailing ? (
           <>

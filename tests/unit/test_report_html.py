@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from ghostwriter.report_html import (
     ensure_reply_intro,
+    extract_patient_identity,
+    resolve_reply_identity,
     restore_ascii_umlauts,
     rewrite_frage_labels,
     strip_heading_brackets,
@@ -35,11 +37,15 @@ def test_reply_intro_uses_name_and_german_birth_date() -> None:
         "Erika Muster",
         "1970-02-01",
         letterhead_html="<p>Praxis</p>",
+        subjects=["Wirbelsäule", "Diabetes mellitus"],
     )
     assert html.startswith("<p>Praxis</p>")
     assert 'class="gw-reply-title"' in html
+    assert "Grades der Behinderung" in html
     assert "Erika Muster" in html
     assert "geboren am 01.02.1970" in html
+    assert "Wirbelsäule" in html
+    assert "Diabetes mellitus" in html
     assert html.index("gw-reply-lead") < html.index("<h2>Hilfsmittel</h2>")
 
 
@@ -47,8 +53,26 @@ def test_reply_intro_replaces_previous_block() -> None:
     once = ensure_reply_intro("<p>Text</p>", "A", "2000-01-02")
     twice = ensure_reply_intro(once, "B", "")
     assert twice.count("gw-reply-title") == 1
-    assert "betreffend B." in twice
+    assert "für B." in twice
     assert "geboren" not in twice
+
+
+def test_extract_patient_identity_from_letter() -> None:
+    text = (
+        "Betrifft: Grad der Behinderung\n"
+        "Patientin: Erika Muster, geboren am 01.02.1970\n"
+        "Diagnose: Skoliose"
+    )
+    name, born = extract_patient_identity(text)
+    assert name == "Erika Muster"
+    assert born == "1970-02-01"
+
+
+def test_resolve_reply_identity_prefers_document_name() -> None:
+    befund = "Herr Max Mustermann, geb. 03.04.1965, Gehstrecke 2 km."
+    name, born = resolve_reply_identity("Max D.", "", befund)
+    assert name == "Max Mustermann"
+    assert born == "1965-04-03"
 
 
 def test_restore_ascii_umlauts_in_body() -> None:
@@ -58,6 +82,14 @@ def test_restore_ascii_umlauts_in_body() -> None:
     assert "für" in out
     assert "über" in out
     assert "gefuehle" not in out.lower()
+
+
+def test_restore_ascii_umlauts_keeps_aktuell() -> None:
+    html = "<p>Der aktuelle HbA1c-Wert und die aktuelle Therapie.</p>"
+    out = restore_ascii_umlauts(html)
+    assert "aktuelle" in out
+    assert "aktüller" not in out
+    assert "aktülle" not in out
 
 
 def test_rewrite_frage_heading_keeps_title() -> None:

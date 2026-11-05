@@ -8,6 +8,7 @@ from typing import Protocol
 from ghostwriter.llm import prompts
 from ghostwriter.report_html import (
     ensure_reply_intro,
+    resolve_reply_identity,
     restore_ascii_umlauts,
     rewrite_frage_labels,
     strip_heading_brackets,
@@ -82,6 +83,7 @@ class ReportPipeline:
         revision_notes: str = "",
         patient_label: str = "",
         birth_date: str = "",
+        source_texts: list[str] | None = None,
     ) -> str:
         q_lines: list[str] = []
         for q in questions:
@@ -120,11 +122,18 @@ class ReportPipeline:
             elif head in html:
                 html = html.replace(head, "", 1).strip()
             html = f"{head}\n{html}" if html else head
-        html = ensure_reply_intro(
-            html,
+        name, born = resolve_reply_identity(
             patient_label,
             birth_date,
+            *(source_texts or []),
+        )
+        subjects = [q.keyword.strip() or q.text.strip() for q in questions if q.keyword or q.text]
+        html = ensure_reply_intro(
+            html,
+            name,
+            born,
             letterhead_html=letterhead_html,
+            subjects=subjects[:6],
         )
         html = apply_signature(html, signature_html)
         return html
