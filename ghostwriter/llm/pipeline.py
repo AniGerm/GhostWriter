@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from ghostwriter.llm import prompts
+from ghostwriter.report_html import strip_heading_brackets
 from ghostwriter.signature import apply_signature, strip_trailing_signature
 from ghostwriter.store import Question
 
@@ -74,7 +75,13 @@ class ReportPipeline:
         current_html: str = "",
         revision_notes: str = "",
     ) -> str:
-        q_block = "\n".join(f"{q.number}. [{q.keyword}] {q.text}" for q in questions)
+        q_lines: list[str] = []
+        for q in questions:
+            if q.keyword.strip():
+                q_lines.append(f"{q.number}. {q.text} (Stichwort: {q.keyword.strip()})")
+            else:
+                q_lines.append(f"{q.number}. {q.text}")
+        q_block = "\n".join(q_lines)
         f_block = "\n---\n".join(finding_summaries) if finding_summaries else "(keine)"
         parts = [
             f"Briefkopf-HTML (optional übernehmen):\n{letterhead_html}",
@@ -92,6 +99,7 @@ class ReportPipeline:
         user = "\n\n".join(parts)
         data = self._client.chat_json(system=prompts.COMPOSE_REPORT_SYSTEM, user=user)
         html = str(data.get("html", "")).strip()
+        html = strip_heading_brackets(html)
         # Kopf (Briefkopf) und Fuß (Signatur) immer kanonisch aus Einstellungen
         if letterhead_html.strip():
             head = letterhead_html.strip()

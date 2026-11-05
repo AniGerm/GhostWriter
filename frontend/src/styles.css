@@ -969,6 +969,7 @@ button {
   --page-pad-top: 25mm;
   --page-pad-bottom: 25mm;
   --page-pad-x: 23mm;
+  --page-gap: calc(var(--page-pad-top) + var(--page-pad-bottom));
   width: min(210mm, 100%);
   min-height: 297mm;
   height: auto;
@@ -976,16 +977,19 @@ button {
   border-radius: 2px;
   border: 1px solid rgba(15, 20, 25, 0.12);
   background-color: #fffefb;
-  /* Seitenwechsel + angedeutete Kopf-/Fußränder je Blatt */
+  /*
+    Seitenraster: Inhalt läuft nur in der weißen Zone.
+    Zwischen Seiten schiebt .editor-page-gap den Text um Kopf+Fuß weiter.
+  */
   background-image:
     repeating-linear-gradient(
       to bottom,
-      color-mix(in srgb, #eceae4 70%, #fffefb) 0,
-      color-mix(in srgb, #eceae4 70%, #fffefb) var(--page-pad-top),
+      color-mix(in srgb, #eceae4 78%, #fffefb) 0,
+      color-mix(in srgb, #eceae4 78%, #fffefb) var(--page-pad-top),
       transparent var(--page-pad-top),
       transparent calc(297mm - var(--page-pad-bottom)),
-      color-mix(in srgb, #eceae4 70%, #fffefb) calc(297mm - var(--page-pad-bottom)),
-      color-mix(in srgb, #eceae4 70%, #fffefb) calc(297mm - 1.5px),
+      color-mix(in srgb, #eceae4 78%, #fffefb) calc(297mm - var(--page-pad-bottom)),
+      color-mix(in srgb, #eceae4 78%, #fffefb) calc(297mm - 1.5px),
       rgba(120, 113, 108, 0.55) calc(297mm - 1.5px),
       rgba(120, 113, 108, 0.55) 297mm
     );
@@ -995,6 +999,20 @@ button {
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 18px 40px rgba(15, 20, 25, 0.14);
   box-sizing: border-box;
+}
+
+.editor-page-gap {
+  display: block;
+  width: calc(100% + 2 * var(--page-pad-x, 23mm));
+  margin-left: calc(-1 * var(--page-pad-x, 23mm));
+  margin-right: calc(-1 * var(--page-pad-x, 23mm));
+  box-sizing: border-box;
+  pointer-events: none;
+  user-select: none;
+  /* Füllt Fuß der alten + Kopf der neuen Seite (Sperrzone) */
+  background: color-mix(in srgb, #eceae4 78%, #fffefb);
+  border-top: 1.5px solid rgba(120, 113, 108, 0.45);
+  border-bottom: 1px solid transparent;
 }
 
 .editor-canvas .tiptap,

@@ -25,10 +25,13 @@ Regeln:
 - Keine erfundenen Befunde, keine Rechtsberatung zum GdB-Grad.
 - Ausgabe ausschließlich als JSON: {"html":"<h1>...</h1>..."} mit semantischem HTML
   (h1/h2/p), Abschnitte je Frage und Anrede/Bezug.
+- Überschriften OHNE eckige Klammern: richtig „<h2>12. Hilfsmittel</h2>“,
+  falsch „<h2>12. [Hilfsmittel]</h2>“. Stichwörter nie in [ ] setzen.
 - KEINEN Briefkopf und KEINE Grußformel/Signatur/Arztzeile – beides wird separat gesetzt.
 - Keine <style>-Blöcke, keine Seitenränder/Margins im HTML (Layout kommt von der App).
 - Sprache: Deutsch, sachlich, ärztlich.
 - Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten
   (Inhalt ergänzen/kürzen/Stil anpassen), keinen Briefkopf und keine Signatur erzeugen,
-  keine Inhalte erfinden, die nicht in Befunden/Hinweisen stehen.
+  keine eckigen Klammern in Überschriften, keine Inhalte erfinden, die nicht in
+  Befunden/Hinweisen stehen.
 """

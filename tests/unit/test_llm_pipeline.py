@@ -196,3 +196,41 @@ def test_compose_report_keeps_letterhead_and_signature() -> None:
     assert html.count("Mit freundlichen Grüßen") == 1
     assert "Dr. Neu" in html
     assert "Dr. Alt" not in html
+
+
+def test_compose_report_strips_brackets_from_headings() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<h2>12. [Hilfsmittel]</h2><p>Versorgt.</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    html = pipe.compose_report(
+        questions=[Question(12, "Hilfsmittel?", "Hilfsmittel")],
+        finding_summaries=["Hilfsmittel vorhanden"],
+        notes="",
+        signature_html="<p>Mit freundlichen Grüßen</p>",
+    )
+    assert "[Hilfsmittel]" not in html
+    assert "<h2>12. Hilfsmittel</h2>" in html
+    payload = fake.calls[0]["user"]
+    assert "[Hilfsmittel]" not in payload
+    assert "Hilfsmittel?" in payload
+
+
+def test_compose_question_block_has_no_square_brackets() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>x</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    pipe.compose_report(
+        questions=[Question(1, "Besteht Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes"],
+        notes="",
+    )
+    payload = fake.calls[0]["user"]
+    assert "[" not in payload.split("Befundzusammenfassungen:")[0]

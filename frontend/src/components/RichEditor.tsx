@@ -4,6 +4,8 @@ import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, type ReactNode } from "react";
+import { PageGaps } from "../pageGaps";
+import { stripHeadingBrackets } from "../stripHeadingBrackets";
 import {
   IconAlignCenter,
   IconAlignJustify,
@@ -25,7 +27,7 @@ type Props = {
 };
 
 function normalizeHtml(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = stripHeadingBrackets(value.trim());
   return trimmed.length > 0 ? trimmed : "<p></p>";
 }
 
@@ -41,6 +43,7 @@ export function RichEditor({ html, onChange, trailing }: Props) {
       Placeholder.configure({
         placeholder: "Ihr Antwortschreiben erscheint hier …",
       }),
+      PageGaps,
     ],
     content: normalizeHtml(html),
     editorProps: {
@@ -49,13 +52,13 @@ export function RichEditor({ html, onChange, trailing }: Props) {
         "aria-label": "Antwortschreiben",
       },
     },
-    onUpdate: ({ editor: ed }) => onChange(ed.getHTML()),
+    onUpdate: ({ editor: ed }) => onChange(stripHeadingBrackets(ed.getHTML())),
   });
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const incoming = normalizeHtml(html);
-    if (incoming === editor.getHTML()) return;
+    if (incoming === stripHeadingBrackets(editor.getHTML())) return;
     editor.commands.setContent(incoming, { emitUpdate: false });
   }, [html, editor]);
 
