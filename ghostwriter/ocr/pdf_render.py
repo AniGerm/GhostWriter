@@ -1,15 +1,26 @@
-"""PDF-/Bild-Rendering für OCR."""
+"""PDF-/Bild-Rendering für OCR.
+
+PDFium verträgt keine parallelen Aufrufe. Seitenzahl und Seitenbild laufen
+deshalb hinter derselben Sperre, sonst stürzt der Prozess ab.
+"""
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Any
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".bmp"}
+_pdfium_lock = threading.Lock()
 
 
 def count_pages(source: Path) -> int:
     """Seitenzahl, ohne die Seiten zu rastern."""
+    with _pdfium_lock:
+        return _count_pages(source)
+
+
+def _count_pages(source: Path) -> int:
     suffix = source.suffix.lower()
     if suffix in IMAGE_EXTS:
         return 1
@@ -26,6 +37,11 @@ def count_pages(source: Path) -> int:
 
 def render_one_page(source: Path, dest: Path, page_number: int, *, dpi: int = 200) -> Path | None:
     """Rendert genau eine 1-basierte Seite nach dest. None, wenn sie fehlt."""
+    with _pdfium_lock:
+        return _render_one_page(source, dest, page_number, dpi=dpi)
+
+
+def _render_one_page(source: Path, dest: Path, page_number: int, *, dpi: int) -> Path | None:
     if page_number < 1:
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -55,6 +71,11 @@ def render_one_page(source: Path, dest: Path, page_number: int, *, dpi: int = 20
 
 def render_pages(source: Path, dest_dir: Path, *, dpi: int = 200) -> list[Path]:
     """Rendert PDF-Seiten oder kopiert ein Bild nach dest_dir als PNG-Liste."""
+    with _pdfium_lock:
+        return _render_pages(source, dest_dir, dpi=dpi)
+
+
+def _render_pages(source: Path, dest_dir: Path, *, dpi: int) -> list[Path]:
     dest_dir.mkdir(parents=True, exist_ok=True)
     suffix = source.suffix.lower()
     if suffix == ".pdf":
@@ -87,15 +108,22 @@ def _write_page_png(page: Any, dest: Path, *, dpi: int) -> None:
     """Schreibt eine pdfium-Seite als PNG. Dreht nur, wenn die Bitmap quer zur Seite liegt."""
     shown_w, shown_h = page.get_size()
     scale = dpi / 72
-    bitmap = page.render(scale=scale, rev_byteorder=True)
-    image = bitmap.to_pil().convert("RGB")
+    image = _page_image(page, scale=scale, rotation=None)
     if (shown_w > shown_h) != (image.width > image.height):
-        image = page.render(
-            scale=scale,
-            rotation=page.get_rotation(),
-            rev_byteorder=True,
-        ).to_pil().convert("RGB")
+        image = _page_image(page, scale=scale, rotation=page.get_rotation())
     image.save(dest, "PNG")
+
+
+def _page_image(page: Any, *, scale: float, rotation: int | None) -> Any:
+    """Kopiert die Bitmap, bevor PDFium den Puffer wieder freigibt."""
+    kwargs: dict[str, Any] = {"scale": scale, "rev_byteorder": True}
+    if rotation is not None:
+        kwargs["rotation"] = rotation
+    bitmap = page.render(**kwargs)
+    try:
+        return bitmap.to_pil().convert("RGB").copy()
+    finally:
+        bitmap.close()
 
 
 def _copy_image(src: Path, dest: Path) -> Path:
