@@ -60,6 +60,11 @@ export default function App() {
     projectId: string;
     label: string;
   } | null>(null);
+  const [inboxToast, setInboxToast] = useState<string | null>(null);
+  const [inboxBanner, setInboxBanner] = useState<{
+    kind: "warn" | "ok";
+    text: string;
+  } | null>(null);
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -68,6 +73,99 @@ export default function App() {
     const timer = window.setTimeout(() => setUndoToast(null), 8000);
     return () => window.clearTimeout(timer);
   }, [undoToast]);
+
+  useEffect(() => {
+    if (!inboxToast) return;
+    const timer = window.setTimeout(() => setInboxToast(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [inboxToast]);
+
+  // Inbox: Spool-PDFs vom virtuellen Drucker ins aktuelle Projekt holen
+  useEffect(() => {
+    if ((step !== "Befunde" && step !== "Anfrage") || !project) return;
+    let cancelled = false;
+    let importing = false;
+    const role = step === "Anfrage" ? "anfrage" : "befund";
+    const probe = () => {
+      void api
+        .inboxStatus()
+        .then(async (status) => {
+          if (cancelled) return;
+          // #region agent log
+          void fetch("/api/debug/log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              hypothesisId: "H2-H4",
+              location: "App.tsx:inboxProbe",
+              message: "inbox_status_poll",
+              data: {
+                step,
+                readable: status.readable,
+                list_error: status.list_error,
+                new_pdf_count: status.new_pdf_count,
+                cups_running: status.cups_running,
+                mode_hint: status.mode_hint,
+                runId: "post-fix",
+              },
+            }),
+          }).catch(() => undefined);
+          // #endregion
+          if (!status.cups_running) {
+            setInboxBanner({
+              kind: "warn",
+              text: "CUPS-Druckdienst läuft nicht. Bitte starten: sudo systemctl start cups",
+            });
+          } else if (!status.readable) {
+            setInboxBanner({
+              kind: "warn",
+              text:
+                "Drucker-Spool nicht lesbar (Rechte). Nach dem Update: sudo /usr/lib/ghostwriter/install-printer.sh",
+            });
+          } else if (status.new_pdf_count > 0) {
+            setInboxBanner({
+              kind: "ok",
+              text: `${status.new_pdf_count} gedruckte Datei(en) – werden übernommen …`,
+            });
+            if (!importing) {
+              importing = true;
+              try {
+                const result = await api.importInbox(project.id, role);
+                if (cancelled) return;
+                setProject(result.project);
+                if (result.imported.length > 0) {
+                  const names = result.imported.map((d) => d.display_name).join(", ");
+                  setInboxToast(
+                    result.imported.length === 1
+                      ? `Gedrucktes Dokument übernommen: ${names}`
+                      : `${result.imported.length} gedruckte Dokumente übernommen`,
+                  );
+                }
+                setInboxBanner(null);
+              } catch (e) {
+                if (!cancelled) {
+                  setInboxBanner({
+                    kind: "warn",
+                    text: e instanceof Error ? e.message : "Inbox-Import fehlgeschlagen",
+                  });
+                }
+              } finally {
+                importing = false;
+              }
+            }
+          } else {
+            setInboxBanner(null);
+          }
+        })
+        .catch(() => undefined);
+    };
+    probe();
+    const timer = window.setInterval(probe, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [step, project?.id]);
 
   useEffect(() => {
     api
@@ -444,6 +542,9 @@ export default function App() {
               Laden Sie die Anfrage mit den konkreten Fragen hoch. Text-PDFs werden
               direkt gelesen, Scans per OCR.
             </p>
+            {inboxBanner && (
+              <p className={`inbox-banner is-${inboxBanner.kind}`}>{inboxBanner.text}</p>
+            )}
             <DropZone
               title="Anfrage hierher ziehen"
               hint="PDF oder Scan · eine Datei"
@@ -479,6 +580,9 @@ export default function App() {
               Aus der Patientenakte drucken Sie auf den GhostWriter-Drucker – oder
               laden Dateien hier manuell nach.
             </p>
+            {inboxBanner && (
+              <p className={`inbox-banner is-${inboxBanner.kind}`}>{inboxBanner.text}</p>
+            )}
             <DropZone
               title="Befunde hinzufügen"
               hint="Mehrere PDFs oder Bilder möglich"
@@ -886,6 +990,11 @@ export default function App() {
           <button type="button" className="btn btn-ghost" onClick={() => void handleUndoDelete()}>
             Rückgängig
           </button>
+        </div>
+      )}
+      {inboxToast && (
+        <div className="undo-toast" role="status">
+          <span>{inboxToast}</span>
         </div>
       )}
     </div>

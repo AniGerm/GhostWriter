@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from ghostwriter.llm import prompts
-from ghostwriter.report_html import strip_heading_brackets
+from ghostwriter.report_html import restore_ascii_umlauts, strip_heading_brackets
 from ghostwriter.signature import apply_signature, strip_trailing_signature
 from ghostwriter.store import Question
 
@@ -100,6 +100,7 @@ class ReportPipeline:
         data = self._client.chat_json(system=prompts.COMPOSE_REPORT_SYSTEM, user=user)
         html = str(data.get("html", "")).strip()
         html = strip_heading_brackets(html)
+        html = restore_ascii_umlauts(html)
         # Kopf (Briefkopf) und Fuß (Signatur) immer kanonisch aus Einstellungen
         if letterhead_html.strip():
             head = letterhead_html.strip()

@@ -50,6 +50,22 @@ ensure_cups() {
   return 1
 }
 
+repair_user_spools() {
+  # Bestehende User-Spools von nobody:0700 auf User:0755 korrigieren
+  [[ -d "${SPOOL}" ]] || return 0
+  local dir user
+  for dir in "${SPOOL}"/*; do
+    [[ -d "${dir}" ]] || continue
+    user="$(basename "${dir}")"
+    if id "${user}" >/dev/null 2>&1; then
+      chown -R "${user}:${user}" "${dir}" 2>/dev/null || true
+      chmod 755 "${dir}" 2>/dev/null || true
+      find "${dir}" -type f -name '*.pdf' -exec chmod 600 {} + 2>/dev/null || true
+      log "Spool-Rechte repariert: ${dir}"
+    fi
+  done
+}
+
 install_files() {
   if [[ ! -f "${BACKEND_SRC}" ]]; then
     echo "ghostwriter-printer: Backend fehlt: ${BACKEND_SRC}" >&2
@@ -64,6 +80,7 @@ install_files() {
   # CUPS erwartet root-eigene Backends
   install -o root -g root -m 0755 "${BACKEND_SRC}" "${BACKEND_DST}"
   install -o root -g root -m 0644 "${PPD_SRC}" "${PPD_DST}"
+  repair_user_spools
 }
 
 register_queue() {

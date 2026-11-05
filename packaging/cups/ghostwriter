@@ -22,6 +22,12 @@ USER_SAFE=$(printf '%s' "$USER_NAME" | tr -cd 'A-Za-z0-9._-')
 DEST_DIR="${SPOOL_ROOT}/${USER_SAFE}"
 mkdir -p "$DEST_DIR"
 
+# Spool-Ordner muss dem Desktop-User gehören (sonst kann GhostWriter nicht lesen)
+if id "$USER_NAME" >/dev/null 2>&1; then
+  chown "$USER_NAME":"$USER_NAME" "$DEST_DIR" 2>/dev/null || true
+  chmod 755 "$DEST_DIR" 2>/dev/null || true
+fi
+
 STAMP=$(date +%Y%m%d_%H%M%S)
 SAFE_TITLE=$(printf '%s' "$TITLE" | tr -cd 'A-Za-z0-9._-' | cut -c1-40)
 [ -n "$SAFE_TITLE" ] || SAFE_TITLE="job"

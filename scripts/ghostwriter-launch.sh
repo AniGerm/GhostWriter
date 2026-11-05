@@ -7,6 +7,22 @@ API_URL="http://127.0.0.1:8787"
 ICON="${APP_ROOT}/packaging/icons/256x256/ghostwriter.png"
 export ELECTRON_DISABLE_SANDBOX=1
 
+ensure_cups_best_effort() {
+  # Ohne root oft wirkungslos – hilft wenn der User in der Gruppe lpadmin ist
+  if command -v lpstat >/dev/null 2>&1; then
+    if lpstat -r 2>/dev/null | grep -Eiq 'running|läuft'; then
+      return 0
+    fi
+  fi
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl start cups.service >/dev/null 2>&1 || true
+    systemctl start cups.socket >/dev/null 2>&1 || true
+  fi
+  if command -v service >/dev/null 2>&1; then
+    service cups start >/dev/null 2>&1 || true
+  fi
+}
+
 start_api() {
   if curl -sf "${API_URL}/api/health" >/dev/null 2>&1; then
     return 0
@@ -28,6 +44,7 @@ start_api() {
   return 1
 }
 
+ensure_cups_best_effort
 start_api
 
 ELECTRON_BIN=""

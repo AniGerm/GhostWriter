@@ -559,6 +559,9 @@ button {
 }
 
 .dropzone {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   border: 1.5px dashed color-mix(in srgb, var(--ink) 18%, transparent);
   border-radius: 18px;
   padding: 36px 20px;
@@ -566,6 +569,29 @@ button {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.35));
   transition: 180ms ease;
+}
+
+.inbox-banner {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.inbox-banner.is-warn {
+  border-color: color-mix(in srgb, #b45309 35%, white);
+  background: color-mix(in srgb, #b45309 10%, white);
+  color: #7c2d12;
+}
+
+.inbox-banner.is-ok {
+  border-color: color-mix(in srgb, var(--accent) 35%, white);
+  background: var(--accent-soft);
+  color: var(--accent-2);
 }
 
 .dropzone:hover,

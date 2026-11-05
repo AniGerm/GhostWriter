@@ -161,6 +161,31 @@ export const api = {
       default_printer: string;
       system_default: string;
     }>("/api/printers"),
+  inboxStatus: () =>
+    req<{
+      spool_dir: string;
+      spool_exists: boolean;
+      spool_is_dir: boolean;
+      readable: boolean;
+      list_error: string | null;
+      entry_count: number;
+      pdf_count: number;
+      new_pdf_count: number;
+      sample_names: string[];
+      owner_hint: string | null;
+      mode_hint: string | null;
+      cups_running: boolean;
+    }>("/api/inbox/status"),
+  importInbox: (projectId: string, role: "anfrage" | "befund" = "befund") =>
+    req<{
+      imported: { id: string; display_name: string }[];
+      errors: string[];
+      project: Project;
+    }>(`/api/projects/${projectId}/inbox/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    }),
   listOllamaModels: (base_url?: string) => {
     const query = base_url ? `?base_url=${encodeURIComponent(base_url)}` : "";
     return req<{ models: string[]; base_url: string }>(`/api/ollama/models${query}`);

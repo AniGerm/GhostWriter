@@ -10,7 +10,8 @@ export const A4_PAGE_WIDTH_MM = 210;
 export function a4ContentHeightPx(): number {
   const usable =
     A4_PAGE_HEIGHT_MM - A4_MARGIN_TOP_MM - A4_MARGIN_BOTTOM_MM;
-  return Math.round((usable * 96) / 25.4);
+  // Kleiner Puffer, damit Blöcke nicht in die Fuß-Sperrzone rutschen
+  return Math.max(1, Math.round((usable * 96) / 25.4) - 12);
 }
 
 export function a4PageWidthPx(): number {

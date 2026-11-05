@@ -1,0 +1,49 @@
+{
+  "sessionId": "3e0627",
+  "hypotheses": {
+    "H1": "Dropzone label ohne width:100% \u2192 linksb\u00fcndig/zu schmal",
+    "H2": "Spool /var/spool/ghostwriter/max ist 0700 uid=nobody \u2192 PermissionError",
+    "H3": "CUPS-Scheduler l\u00e4uft nicht \u2192 Druck landet nie",
+    "H4": "Electron/FastAPI hat keinen Inbox-Import/Watcher",
+    "H5": "Falscher Spool-Userpfad"
+  },
+  "runtime_evidence": [
+    {
+      "hypothesisId": "H2",
+      "result": "CONFIRMED",
+      "data": {
+        "readable": false,
+        "list_error": "PermissionError",
+        "mode_hint": "0o700",
+        "owner_hint": "uid=65534",
+        "spool_dir": "/var/spool/ghostwriter/max"
+      }
+    },
+    {
+      "hypothesisId": "H3",
+      "result": "CONFIRMED_PRELIM",
+      "data": {
+        "lpstat": "Zeitplandienst l\u00e4uft nicht"
+      }
+    },
+    {
+      "hypothesisId": "H4",
+      "result": "CONFIRMED_BY_CODE",
+      "data": {
+        "server_has_inbox_poll": false,
+        "only_qt_app_watched": true
+      }
+    },
+    {
+      "hypothesisId": "H1",
+      "result": "PENDING_UI_MEASURE"
+    },
+    {
+      "hypothesisId": "H5",
+      "result": "UNLIKELY",
+      "data": {
+        "spool_dir_exists": true
+      }
+    }
+  ]
+}

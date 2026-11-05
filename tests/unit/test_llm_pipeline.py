@@ -198,6 +198,25 @@ def test_compose_report_keeps_letterhead_and_signature() -> None:
     assert "Dr. Alt" not in html
 
 
+def test_compose_report_restores_ascii_umlauts() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>Kribbelgefuehle fuer den Arm.</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    html = pipe.compose_report(
+        questions=[Question(1, "Sensibilitaet?", "Sensibilitaet")],
+        finding_summaries=["Parästhesien"],
+        notes="",
+        signature_html="<p>Mit freundlichen Grüßen</p>",
+    )
+    assert "Kribbelgefühle" in html
+    assert "für" in html
+    assert "gefuehle" not in html
+
+
 def test_compose_report_strips_brackets_from_headings() -> None:
     class ComposeFake(FakeOllama):
         def chat_json(self, **kwargs: Any) -> dict[str, Any]:

@@ -5,7 +5,7 @@ import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, type ReactNode } from "react";
 import { PageGaps } from "../pageGaps";
-import { stripHeadingBrackets } from "../stripHeadingBrackets";
+import { normalizeReportHtml } from "../stripHeadingBrackets";
 import {
   IconAlignCenter,
   IconAlignJustify,
@@ -27,7 +27,7 @@ type Props = {
 };
 
 function normalizeHtml(value: string): string {
-  const trimmed = stripHeadingBrackets(value.trim());
+  const trimmed = normalizeReportHtml(value.trim());
   return trimmed.length > 0 ? trimmed : "<p></p>";
 }
 
@@ -52,13 +52,13 @@ export function RichEditor({ html, onChange, trailing }: Props) {
         "aria-label": "Antwortschreiben",
       },
     },
-    onUpdate: ({ editor: ed }) => onChange(stripHeadingBrackets(ed.getHTML())),
+    onUpdate: ({ editor: ed }) => onChange(normalizeReportHtml(ed.getHTML())),
   });
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const incoming = normalizeHtml(html);
-    if (incoming === stripHeadingBrackets(editor.getHTML())) return;
+    if (incoming === normalizeReportHtml(editor.getHTML())) return;
     editor.commands.setContent(incoming, { emitUpdate: false });
   }, [html, editor]);
 

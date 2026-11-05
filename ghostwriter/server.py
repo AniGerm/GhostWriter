@@ -23,12 +23,65 @@ from ghostwriter.costs import calculate_costs
 from ghostwriter.extract import ExtractionResult, extract_document_text
 from ghostwriter.llm.client import OllamaClient, OllamaError, is_allowed_ollama_host
 from ghostwriter.llm.pipeline import ReportPipeline
-from ghostwriter.paths import default_data_root
+from ghostwriter.inbox import list_new_spool_pdfs, mark_processed
+from ghostwriter.paths import default_data_root, default_spool_dir
 from ghostwriter.preview import page_preview_path, preview_cache_dir
 from ghostwriter.printers import list_cups_printers
 from ghostwriter.settings import load_settings, save_settings
 from ghostwriter.store import DocumentRole, ProjectStore, Question
 from ghostwriter.updates import set_github_repo
+
+# #region agent log
+_DEBUG_LOG = Path("/home/max/Dokumente/GhostWriter/.cursor/debug-3e0627.log")
+_DEBUG_INGEST = "http://127.0.0.1:7618/ingest/e4f895d3-7933-43f7-9300-cd580c137a2e"
+
+
+def _agent_log(hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
+    """Session-Debug: NDJSON Datei + Ingest (ohne Patientendaten)."""
+    import json
+    import time
+    import urllib.request
+
+    payload = {
+        "sessionId": "3e0627",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    line = json.dumps(payload, ensure_ascii=False) + "\n"
+    try:
+        _DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _DEBUG_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+    except Exception:
+        try:
+            Path("/tmp/debug-3e0627.log").write_text(
+                Path("/tmp/debug-3e0627.log").read_text(encoding="utf-8")
+                + line
+                if Path("/tmp/debug-3e0627.log").is_file()
+                else line,
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+    try:
+        req = urllib.request.Request(
+            _DEBUG_INGEST,
+            data=line.encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Debug-Session-Id": "3e0627",
+            },
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=1.5)
+    except Exception:
+        pass
+
+
+# #endregion
 
 DATA_ROOT = default_data_root()
 STORE = ProjectStore(DATA_ROOT)
@@ -171,6 +224,163 @@ def _ollama_status() -> dict[str, Any]:
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {"ok": True, "version": updates.app_version(), "ollama": _ollama_status()}
+
+
+class DebugLogBody(BaseModel):
+    hypothesisId: str = ""
+    location: str = ""
+    message: str = ""
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post("/api/debug/log")
+def debug_log(body: DebugLogBody) -> dict[str, bool]:
+    """Nimmt Frontend-Debug-Events entgegen (Session 3e0627)."""
+    _agent_log(
+        body.hypothesisId or "FE",
+        body.location or "frontend",
+        body.message or "event",
+        body.data,
+    )
+    return {"ok": True}
+
+
+def _cups_scheduler_running() -> bool:
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["lpstat", "-r"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        text = f"{proc.stdout} {proc.stderr}".lower()
+        return "running" in text or "läuft" in text
+    except Exception:
+        return False
+
+
+@app.get("/api/inbox/status")
+def inbox_status() -> dict[str, Any]:
+    """Diagnose: CUPS-Spool erreichbar? Neue PDFs?"""
+    settings = load_settings(SETTINGS_PATH)
+    spool = Path(settings.spool_dir) if settings.spool_dir else default_spool_dir()
+    state_path = DATA_ROOT / "inbox_state.json"
+    result: dict[str, Any] = {
+        "spool_dir": str(spool),
+        "spool_exists": spool.exists(),
+        "spool_is_dir": spool.is_dir(),
+        "readable": False,
+        "list_error": None,
+        "entry_count": 0,
+        "pdf_count": 0,
+        "new_pdf_count": 0,
+        "sample_names": [],
+        "owner_hint": None,
+        "mode_hint": None,
+        "cups_running": _cups_scheduler_running(),
+    }
+    try:
+        st = spool.stat()
+        result["mode_hint"] = oct(st.st_mode & 0o777)
+        result["owner_hint"] = f"uid={st.st_uid}"
+    except OSError as exc:
+        result["list_error"] = f"stat: {exc}"
+        # #region agent log
+        _agent_log("H2", "server.py:inbox_status", "spool_stat_failed", {**result, "runId": "post-fix"})
+        # #endregion
+        return result
+    try:
+        entries = list(spool.iterdir())
+        result["readable"] = True
+        result["entry_count"] = len(entries)
+        pdfs = [p for p in entries if p.is_file() and p.suffix.lower() == ".pdf"]
+        result["pdf_count"] = len(pdfs)
+        result["sample_names"] = [p.name[:80] for p in sorted(pdfs)[-5:]]
+        new_pdfs = list_new_spool_pdfs(spool, state_path=state_path)
+        result["new_pdf_count"] = len(new_pdfs)
+    except OSError as exc:
+        result["list_error"] = f"listdir: {type(exc).__name__}: {exc}"
+        result["readable"] = False
+    # #region agent log
+    _agent_log(
+        "H2-H5",
+        "server.py:inbox_status",
+        "inbox_probe",
+        {
+            "readable": result["readable"],
+            "list_error": result["list_error"],
+            "pdf_count": result["pdf_count"],
+            "new_pdf_count": result["new_pdf_count"],
+            "mode_hint": result["mode_hint"],
+            "owner_hint": result["owner_hint"],
+            "spool_exists": result["spool_exists"],
+            "cups_running": result["cups_running"],
+            "runId": "post-fix",
+        },
+    )
+    # #endregion
+    return result
+
+
+class InboxImportBody(BaseModel):
+    role: str = "befund"
+
+
+@app.post("/api/projects/{project_id}/inbox/import")
+def import_inbox(project_id: str, body: InboxImportBody | None = None) -> dict[str, Any]:
+    """Übernimmt neue Spool-PDFs in das aktuelle Projekt."""
+    if STORE.get_project(project_id) is None or not STORE.is_project_active(project_id):
+        raise HTTPException(404, "Projekt nicht gefunden")
+    role_raw = (body.role if body else "befund") or "befund"
+    try:
+        doc_role = DocumentRole(role_raw)
+    except ValueError as exc:
+        raise HTTPException(400, "Ungültige Rolle") from exc
+    settings = load_settings(SETTINGS_PATH)
+    spool = Path(settings.spool_dir) if settings.spool_dir else default_spool_dir()
+    state_path = DATA_ROOT / "inbox_state.json"
+    imported: list[dict[str, str]] = []
+    errors: list[str] = []
+    try:
+        new_pdfs = list_new_spool_pdfs(spool, state_path=state_path)
+    except OSError as exc:
+        # #region agent log
+        _agent_log(
+            "H2",
+            "server.py:import_inbox",
+            "import_list_failed",
+            {"error": type(exc).__name__, "runId": "post-fix"},
+        )
+        # #endregion
+        raise HTTPException(503, "Spool nicht lesbar – Drucker-Spool-Rechte prüfen") from exc
+    for pdf in new_pdfs:
+        try:
+            doc = STORE.add_document(project_id, pdf, doc_role, pdf.name)
+            mark_processed(pdf, state_path=state_path)
+            imported.append({"id": doc.id, "display_name": doc.display_name})
+        except Exception as exc:
+            errors.append(type(exc).__name__)
+    # #region agent log
+    _agent_log(
+        "H4",
+        "server.py:import_inbox",
+        "import_done",
+        {
+            "imported_count": len(imported),
+            "error_count": len(errors),
+            "role": doc_role.value,
+            "runId": "post-fix",
+        },
+    )
+    # #endregion
+    return {
+        "imported": imported,
+        "errors": errors,
+        "project": _project_dict(project_id),
+    }
 
 
 @app.get("/api/projects")
@@ -626,8 +836,9 @@ def update_install() -> dict[str, Any]:
 
 
 FRONTEND_DIST_CANDIDATES: tuple[Path, ...] = (
-    Path("/opt/ghostwriter/frontend/dist"),
+    # Debug: Workspace-Build zuerst, damit Instrumentierung ohne /opt-Write greift
     Path(__file__).resolve().parents[1] / "frontend" / "dist",
+    Path("/opt/ghostwriter/frontend/dist"),
     Path(__file__).resolve().parents[2] / "frontend" / "dist",
 )
 

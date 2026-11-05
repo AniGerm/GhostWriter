@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ghostwriter.report_html import strip_heading_brackets
+from ghostwriter.report_html import restore_ascii_umlauts, strip_heading_brackets
 
 
 def test_strip_heading_brackets_from_h2() -> None:
@@ -22,3 +22,19 @@ def test_strip_heading_brackets_h1_and_nested() -> None:
     out = strip_heading_brackets(html)
     assert "<h1>Ärztlicher Bericht</h1>" in out
     assert "<h2>3. Operationen</h2>" in out
+
+
+def test_restore_ascii_umlauts_in_body() -> None:
+    html = "<p>Kribbelgefuehle fuer den Patienten ueber Wochen.</p>"
+    out = restore_ascii_umlauts(html)
+    assert "Kribbelgefühle" in out
+    assert "für" in out
+    assert "über" in out
+    assert "gefuehle" not in out.lower()
+
+
+def test_restore_ascii_umlauts_keeps_tags() -> None:
+    html = '<p class="ueber">aerztlich</p>'
+    out = restore_ascii_umlauts(html)
+    assert 'class="ueber"' in out
+    assert "ärztlich" in out

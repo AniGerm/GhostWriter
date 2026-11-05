@@ -36,16 +36,16 @@ function computeGapDecorations(view: EditorView): DecorationSet {
   let used = 0;
   const doc = view.state.doc;
 
-  doc.forEach((_child, offset) => {
+  doc.forEach((child, offset) => {
     const dom = view.nodeDOM(offset);
     if (!(dom instanceof HTMLElement)) return;
 
     const height = blockHeight(dom);
+    // Lücke VOR dem Block, der die Inhaltsfläche sprengen würde
     if (used > 0 && used + height > contentH) {
-      const pos = offset;
       widgets.push(
         Decoration.widget(
-          pos,
+          offset,
           () => {
             const el = document.createElement("div");
             el.className = "editor-page-gap";
@@ -54,14 +54,36 @@ function computeGapDecorations(view: EditorView): DecorationSet {
             el.style.height = `${gapH}px`;
             return el;
           },
-          { side: -1, key: `page-gap-${pos}` },
+          { side: -1, key: `page-gap-before-${offset}` },
         ),
       );
       used = 0;
     }
+
     used += height;
+
+    // Nach einem Block, der die Seite füllt/überläuft: Lücke DANACH,
+    // damit folgender Text nicht in der Fuß-Sperrzone startet.
     if (used >= contentH) {
-      used = 0;
+      const after = offset + child.nodeSize;
+      widgets.push(
+        Decoration.widget(
+          after,
+          () => {
+            const el = document.createElement("div");
+            el.className = "editor-page-gap";
+            el.setAttribute("contenteditable", "false");
+            el.setAttribute("aria-hidden", "true");
+            el.style.height = `${gapH}px`;
+            return el;
+          },
+          { side: 1, key: `page-gap-after-${after}` },
+        ),
+      );
+      used = Math.max(0, used - contentH);
+      if (used === 0 || height >= contentH) {
+        used = 0;
+      }
     }
   });
 
@@ -69,8 +91,8 @@ function computeGapDecorations(view: EditorView): DecorationSet {
 }
 
 function sameGapPositions(a: DecorationSet, b: DecorationSet): boolean {
-  const aa = a.find().map((d) => d.from);
-  const bb = b.find().map((d) => d.from);
+  const aa = a.find().map((d) => `${d.from}:${d.spec?.side ?? 0}`);
+  const bb = b.find().map((d) => `${d.from}:${d.spec?.side ?? 0}`);
   if (aa.length !== bb.length) return false;
   return aa.every((pos, i) => pos === bb[i]);
 }

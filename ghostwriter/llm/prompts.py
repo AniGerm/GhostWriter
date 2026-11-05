@@ -27,6 +27,9 @@ Regeln:
   (h1/h2/p), Abschnitte je Frage und Anrede/Bezug.
 - Überschriften OHNE eckige Klammern: richtig „<h2>12. Hilfsmittel</h2>“,
   falsch „<h2>12. [Hilfsmittel]</h2>“. Stichwörter nie in [ ] setzen.
+- Echte deutsche Umlaute und ß verwenden (ä ö ü Ä Ö Ü ß).
+  VERBOTEN: ae/oe/ue statt Umlaute (falsch: Gefuehle, fuer, ueber;
+  richtig: Gefühle, für, über).
 - KEINEN Briefkopf und KEINE Grußformel/Signatur/Arztzeile – beides wird separat gesetzt.
 - Keine <style>-Blöcke, keine Seitenränder/Margins im HTML (Layout kommt von der App).
 - Sprache: Deutsch, sachlich, ärztlich.
