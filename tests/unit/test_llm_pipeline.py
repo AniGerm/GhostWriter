@@ -144,3 +144,55 @@ def test_compose_report_includes_revision_context() -> None:
     assert "Stil kürzer" in payload
     assert "Dr. Test" in payload
     assert "Änderungswünsche" in payload or "Revision" in payload
+
+
+def test_compose_report_strips_signature_from_current_draft() -> None:
+    """Beim Neu-Erzeugen soll die KI keinen alten Fuß im Entwurf sehen."""
+
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>Frisch</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    pipe.compose_report(
+        questions=[Question(1, "Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes Typ 2"],
+        notes="",
+        current_html=(
+            "<p>Alter Text</p>"
+            "<p>Mit freundlichen Grüßen</p>"
+            "<p>Dr. Alt</p>"
+        ),
+        revision_notes="kürzer",
+        letterhead_html="<p>Praxis Kopf</p>",
+        signature_html="<p>Mit freundlichen Grüßen</p><p>Dr. Neu</p>",
+    )
+    payload = fake.calls[0]["user"]
+    assert "Alter Text" in payload
+    assert "Dr. Alt" not in payload
+    assert "Mit freundlichen Grüßen" not in payload.split("Signatur-HTML:")[0]
+    assert "Praxis Kopf" in payload
+
+
+def test_compose_report_keeps_letterhead_and_signature() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>Nur Körper</p><p>Mit freundlichen Grüßen</p><p>Dr. Alt</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    html = pipe.compose_report(
+        questions=[Question(1, "Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes Typ 2"],
+        notes="",
+        letterhead_html="<p>Praxis Kopf</p>",
+        signature_html="<p>Mit freundlichen Grüßen</p><p>Dr. Neu</p>",
+    )
+    assert html.startswith("<p>Praxis Kopf</p>")
+    assert "Nur Körper" in html
+    assert html.count("Mit freundlichen Grüßen") == 1
+    assert "Dr. Neu" in html
+    assert "Dr. Alt" not in html

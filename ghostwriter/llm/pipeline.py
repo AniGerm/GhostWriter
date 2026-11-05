@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from ghostwriter.llm import prompts
-from ghostwriter.signature import apply_signature
+from ghostwriter.signature import apply_signature, strip_trailing_signature
 from ghostwriter.store import Question
 
 
@@ -83,15 +83,22 @@ class ReportPipeline:
             f"Hinweise des Arztes:\n{notes or '(keine)'}",
         ]
         if current_html.strip():
-            parts.append(f"Aktueller Entwurf (HTML):\n{current_html.strip()}")
+            # Fuß (Signatur) nie als editierbaren Entwurf mitschicken – wird danach gesetzt
+            draft_body = strip_trailing_signature(current_html.strip())
+            parts.append(f"Aktueller Entwurf (HTML):\n{draft_body}")
         if revision_notes.strip():
             parts.append(f"Änderungswünsche / Revision:\n{revision_notes.strip()}")
         parts.append(f"Signatur-HTML:\n{signature_html}")
         user = "\n\n".join(parts)
         data = self._client.chat_json(system=prompts.COMPOSE_REPORT_SYSTEM, user=user)
         html = str(data.get("html", "")).strip()
-        if letterhead_html and letterhead_html not in html:
-            html = f"{letterhead_html}\n{html}"
-        # Signatur immer kanonisch aus Einstellungen (keine LLM-Doppelung)
+        # Kopf (Briefkopf) und Fuß (Signatur) immer kanonisch aus Einstellungen
+        if letterhead_html.strip():
+            head = letterhead_html.strip()
+            if html.startswith(head):
+                html = html[len(head) :].lstrip()
+            elif head in html:
+                html = html.replace(head, "", 1).strip()
+            html = f"{head}\n{html}" if html else head
         html = apply_signature(html, signature_html)
         return html

@@ -2,7 +2,7 @@
  * Minimale Electron-Shell um die lokale GhostWriter-UI.
  * Dev: VITE + API. Prod: http://127.0.0.1:8787 (FastAPI liefert dist).
  */
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, shell } = require("electron");
 const path = require("path");
 
 const DEV = !!process.env.GHOSTWRITER_DEV;
@@ -29,11 +29,50 @@ if (process.platform === "linux") {
   app.commandLine.appendSwitch("class", "GhostWriter");
 }
 
+function workAreaFor(win) {
+  try {
+    const bounds = win.getBounds();
+    const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+    return display.workArea;
+  } catch {
+    return screen.getPrimaryDisplay().workArea;
+  }
+}
+
+function fillWorkArea(win) {
+  const work = workAreaFor(win);
+  win.setBounds({
+    x: work.x,
+    y: work.y,
+    width: Math.max(work.width, 960),
+    height: Math.max(work.height, 680),
+  });
+}
+
+function maximizeNow(win) {
+  try {
+    fillWorkArea(win);
+    if (!win.isMaximized()) {
+      win.maximize();
+    }
+    // Falls maximize vom WM ignoriert wird: Bounds = Arbeitsfläche
+    if (!win.isMaximized()) {
+      fillWorkArea(win);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function createWindow() {
   const iconPath = resolveIcon();
+  const primary = screen.getPrimaryDisplay();
+  const work = primary.workArea;
   const win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    x: work.x,
+    y: work.y,
+    width: Math.max(work.width, 960),
+    height: Math.max(work.height, 680),
     minWidth: 960,
     minHeight: 680,
     show: false,
@@ -48,11 +87,21 @@ function createWindow() {
     },
   });
   win.removeMenu();
+
+  const bump = () => maximizeNow(win);
+
   win.once("ready-to-show", () => {
-    // Standard: Monitor voll nutzen (maximiert, nicht kiosk-Fullscreen)
-    win.maximize();
+    bump();
     win.show();
+    bump();
+    // Manche WMs (X11/Mutter) setzen die Größe erst nach show
+    setTimeout(bump, 0);
+    setTimeout(bump, 100);
+    setTimeout(bump, 400);
   });
+  win.webContents.once("did-finish-load", bump);
+  win.on("show", bump);
+
   // Verhindert, dass nach Updates die alte UI aus dem Disk-Cache kommt
   win.webContents.session.clearCache().catch(() => undefined);
   const bust = encodeURIComponent(String(Date.now()));

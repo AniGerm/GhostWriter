@@ -1,12 +1,25 @@
 /** Teilt Brief-HTML in A4-Seiten (DOM-Messung, Blockelemente). */
 
+/** Brief-Ränder in mm – müssen zu styles.css (.editor-canvas / .a4-page-body) passen. */
+export const A4_MARGIN_TOP_MM = 25;
+export const A4_MARGIN_BOTTOM_MM = 25;
+export const A4_MARGIN_X_MM = 23;
+export const A4_PAGE_HEIGHT_MM = 297;
+export const A4_PAGE_WIDTH_MM = 210;
+
 export function a4ContentHeightPx(): number {
-  // 297mm Blatt minus Kopf-/Fußrand (~50mm), bei 96 CSS-dpi
-  return Math.round(((297 - 50) * 96) / 25.4);
+  const usable =
+    A4_PAGE_HEIGHT_MM - A4_MARGIN_TOP_MM - A4_MARGIN_BOTTOM_MM;
+  return Math.round((usable * 96) / 25.4);
 }
 
 export function a4PageWidthPx(): number {
-  return Math.round((210 * 96) / 25.4);
+  return Math.round((A4_PAGE_WIDTH_MM * 96) / 25.4);
+}
+
+export function a4ContentWidthPx(): number {
+  const usable = A4_PAGE_WIDTH_MM - A4_MARGIN_X_MM * 2;
+  return Math.round((usable * 96) / 25.4);
 }
 
 export function splitElementChildrenIntoPages(
@@ -60,7 +73,7 @@ export function measureHtmlPages(html: string, pageHeightPx = a4ContentHeightPx(
     "position:absolute",
     "left:-10000px",
     "top:0",
-    `width:${a4PageWidthPx() - Math.round((36 * 96) / 25.4)}px`,
+    `width:${a4ContentWidthPx()}px`,
     "visibility:hidden",
     "pointer-events:none",
   ].join(";");

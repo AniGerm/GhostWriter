@@ -326,9 +326,9 @@ export default function App() {
       const html = `<!doctype html><html lang="de"><head><meta charset="utf-8" />
 <title>Anschreiben</title>
 <style>
-  body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; margin: 25mm 20mm; color: #111; }
+  body { font-family: "Times New Roman", serif; font-size: 12pt; line-height: 1.5; margin: 25mm 23mm; color: #111; }
   h1,h2,h3 { font-family: system-ui, sans-serif; }
-  @media print { body { margin: 25mm 20mm; } }
+  @media print { body { margin: 25mm 23mm; } }
 </style></head><body>${draft}</body></html>`;
       const device = settings?.default_printer || "";
       if (window.ghostwriterDesktop?.printHtml) {
@@ -579,25 +579,63 @@ export default function App() {
               key={`${project.id}-${draftEpoch}`}
               html={draft}
               onChange={setDraft}
+              trailing={
+                <>
+                  {project.questions.length > 0 && (
+                    <details className="toolbar-questions">
+                      <summary>
+                        Fragen
+                        <span className="questions-fold-count">{project.questions.length}</span>
+                      </summary>
+                      <div className="toolbar-questions-panel">
+                        <p className="hint">Erkannte Fragen aus der Landratsamts-Anfrage</p>
+                        <ul className="file-list">
+                          {project.questions.map((q) => (
+                            <li key={q.number}>
+                              <span>
+                                {q.number}. {q.text}
+                              </span>
+                              {q.keyword ? <span>{q.keyword}</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </details>
+                  )}
+                  <button
+                    type="button"
+                    className="toolbar-action"
+                    onClick={() => setStep("Analyse")}
+                  >
+                    Zurück
+                  </button>
+                  <button
+                    type="button"
+                    className="toolbar-action"
+                    disabled={busy}
+                    onClick={() => void saveDraft()}
+                  >
+                    Speichern
+                  </button>
+                  <button
+                    type="button"
+                    className={`toolbar-action${regenOpen ? " is-active" : ""}`}
+                    disabled={busy}
+                    onClick={() => setRegenOpen((open) => !open)}
+                  >
+                    Neu erzeugen
+                  </button>
+                  <button
+                    type="button"
+                    className="toolbar-action toolbar-action-primary"
+                    disabled={busy}
+                    onClick={() => void goToPreview()}
+                  >
+                    Vorschau
+                  </button>
+                </>
+              }
             />
-            {project.questions.length > 0 && (
-              <details className="questions-fold">
-                <summary>
-                  Erkannte Fragen aus der Landratsamts-Anfrage
-                  <span className="questions-fold-count">{project.questions.length}</span>
-                </summary>
-                <ul className="file-list">
-                  {project.questions.map((q) => (
-                    <li key={q.number}>
-                      <span>
-                        {q.number}. {q.text}
-                      </span>
-                      {q.keyword ? <span>{q.keyword}</span> : null}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
             {regenOpen && (
               <div className="regen-panel" role="region" aria-label="Schreiben neu erzeugen">
                 <label htmlFor="revision-notes">Anmerkungen für die KI</label>
@@ -630,29 +668,6 @@ export default function App() {
                 </div>
               </div>
             )}
-            <div className="actions">
-              <button className="btn btn-ghost" onClick={() => setStep("Analyse")}>
-                Zurück
-              </button>
-              <button className="btn btn-ghost" disabled={busy} onClick={() => void saveDraft()}>
-                Speichern
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={busy}
-                onClick={() => setRegenOpen((open) => !open)}
-              >
-                Neu erzeugen
-              </button>
-              <button
-                className="btn btn-primary"
-                disabled={busy}
-                onClick={() => void goToPreview()}
-              >
-                Weiter zur Vorschau
-              </button>
-            </div>
           </>
         )}
 

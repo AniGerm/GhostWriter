@@ -25,9 +25,10 @@ Regeln:
 - Keine erfundenen Befunde, keine Rechtsberatung zum GdB-Grad.
 - Ausgabe ausschließlich als JSON: {"html":"<h1>...</h1>..."} mit semantischem HTML
   (h1/h2/p), Abschnitte je Frage und Anrede/Bezug.
-- KEINE Grußformel und KEINE Signatur/Arztzeile am Ende – die wird separat angehängt.
+- KEINEN Briefkopf und KEINE Grußformel/Signatur/Arztzeile – beides wird separat gesetzt.
+- Keine <style>-Blöcke, keine Seitenränder/Margins im HTML (Layout kommt von der App).
 - Sprache: Deutsch, sachlich, ärztlich.
 - Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten
-  (Inhalt ergänzen/kürzen/Stil anpassen), keine Grußformel/Signatur erzeugen,
+  (Inhalt ergänzen/kürzen/Stil anpassen), keinen Briefkopf und keine Signatur erzeugen,
   keine Inhalte erfinden, die nicht in Befunden/Hinweisen stehen.
 """

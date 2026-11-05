@@ -73,7 +73,9 @@ button {
   position: sticky;
   top: 0;
   max-height: 100vh;
-  overflow: auto;
+  /* Popover (Einstellungen) darf über das rechte Panel ragen */
+  overflow: visible;
+  z-index: 120;
 }
 
 .sidebar-brand {
@@ -325,13 +327,14 @@ button {
 
 .app-settings-wrap {
   position: relative;
+  z-index: 130;
 }
 
 .app-settings-popover {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
-  z-index: 50;
+  z-index: 140;
   width: min(720px, calc(100vw - 48px));
   max-height: min(80vh, 640px);
   overflow: auto;
@@ -483,6 +486,8 @@ button {
 }
 
 .panel {
+  position: relative;
+  z-index: 1;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -751,8 +756,9 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  padding: 8px;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 10px;
   border-radius: 16px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   border: 1px solid var(--line);
@@ -760,7 +766,24 @@ button {
   box-shadow: 0 10px 28px rgba(15, 20, 25, 0.08);
 }
 
-.editor-toolbar button {
+.editor-toolbar-format {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.editor-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.editor-toolbar-format > button {
   border: none;
   background: transparent;
   color: var(--ink-soft);
@@ -773,8 +796,8 @@ button {
   justify-content: center;
 }
 
-.editor-toolbar button.is-active,
-.editor-toolbar button:hover {
+.editor-toolbar-format > button.is-active,
+.editor-toolbar-format > button:hover {
   background: white;
   color: var(--ink);
   box-shadow: 0 1px 0 rgba(15, 20, 25, 0.06);
@@ -785,6 +808,105 @@ button {
   height: 22px;
   margin: 0 4px;
   background: var(--line);
+  flex: 0 0 auto;
+}
+
+.toolbar-sep-tall {
+  height: 28px;
+  margin: 0 2px 0 8px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.toolbar-action {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.toolbar-action:hover:not(:disabled),
+.toolbar-action.is-active {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 35%, white);
+  background: white;
+}
+
+.toolbar-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toolbar-action-primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: #fff;
+}
+
+.toolbar-action-primary:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.04);
+}
+
+.toolbar-questions {
+  position: relative;
+}
+
+.toolbar-questions > summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.toolbar-questions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.toolbar-questions[open] > summary {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 35%, white);
+}
+
+.toolbar-questions-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: min(420px, 78vw);
+  max-height: min(50vh, 420px);
+  overflow: auto;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.toolbar-questions-panel .file-list {
+  margin-top: 8px;
+}
+
+.toolbar-questions-panel .file-list li {
+  font-size: 0.86rem;
+  padding: 10px 12px;
 }
 
 .editor-desk {
@@ -1131,19 +1253,28 @@ button {
 }
 
 .a4-page-label {
-  padding: 10px 18px 0;
+  position: absolute;
+  top: 10px;
+  left: 18px;
+  right: 48px;
+  z-index: 2;
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--muted);
+  pointer-events: none;
 }
 
 .a4-page-body {
-  padding: 8px 23mm 25mm;
+  /* Gleicher Kopf-/Fuß-/Seitenrand wie Editor und Druck */
+  padding: 25mm 23mm;
+  box-sizing: border-box;
+  min-height: 297mm;
 }
 
 .a4-page-raster {
   padding: 8px 10px 14px;
+  min-height: 0;
 }
 
 .a4-page-raster img {
