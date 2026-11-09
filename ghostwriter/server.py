@@ -692,6 +692,13 @@ def _public_job_error(exc: BaseException) -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         mapped = OllamaClient._map_status_error(exc, model="?")
         return str(mapped)
+    if isinstance(exc, ModuleNotFoundError):
+        missing = str(getattr(exc, "name", "") or exc).lower()
+        if "paddleocr" in missing or "paddle" in missing:
+            return (
+                "PaddleOCR fehlt in der GhostWriter-Installation. "
+                "Scans brauchen den OCR-Stack im App-venv unter /opt/ghostwriter."
+            )
     msg = str(exc).strip()
     if not msg:
         return type(exc).__name__

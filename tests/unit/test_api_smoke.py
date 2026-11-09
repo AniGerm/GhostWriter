@@ -56,6 +56,12 @@ def test_get_project_with_questions_serializes(
     ]
 
 
+def test_public_job_error_explains_missing_paddleocr() -> None:
+    msg = _public_job_error(ModuleNotFoundError("No module named 'paddleocr'"))
+    assert "PaddleOCR" in msg
+    assert "paddleocr" in msg.lower()
+
+
 def test_public_job_error_prefers_ollama_message() -> None:
     assert "nicht gefunden" in _public_job_error(OllamaError("Modell x nicht gefunden"))
     req = httpx.Request("POST", "http://127.0.0.1:11434/api/chat")
