@@ -7,6 +7,13 @@ API_URL="http://127.0.0.1:8787"
 ICON="${APP_ROOT}/packaging/icons/256x256/ghostwriter.png"
 export ELECTRON_DISABLE_SANDBOX=1
 
+# Nach pkexec/Update sonst oft cwd=/root → OCR Permission denied.
+if [[ -n "${HOME:-}" && -d "${HOME}" && -w "${HOME}" ]]; then
+  cd "${HOME}" || true
+elif [[ -d /tmp && -w /tmp ]]; then
+  cd /tmp || true
+fi
+
 ensure_cups_best_effort() {
   # Ohne root oft wirkungslos – hilft wenn der User in der Gruppe lpadmin ist
   if command -v lpstat >/dev/null 2>&1; then

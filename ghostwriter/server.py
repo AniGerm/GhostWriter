@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import shutil
 import threading
 import uuid
@@ -40,6 +41,21 @@ from ghostwriter.store import Document, DocumentRole, ProjectStore, Question
 from ghostwriter.updates import set_github_repo
 
 DATA_ROOT = default_data_root()
+
+
+def ensure_writable_cwd() -> Path:
+    """Wechselt aus unbeschreibbaren cwd (z. B. /root nach pkexec) heraus."""
+    current = Path.cwd()
+    if os.access(current, os.W_OK | os.X_OK):
+        return current
+    for candidate in (Path.home(), DATA_ROOT, Path("/tmp")):
+        if candidate.is_dir() and os.access(candidate, os.W_OK | os.X_OK):
+            os.chdir(candidate)
+            return candidate
+    return current
+
+
+ensure_writable_cwd()
 STORE = ProjectStore(DATA_ROOT)
 SETTINGS_PATH = DATA_ROOT / "settings.json"
 SETTINGS = load_settings(SETTINGS_PATH)

@@ -48,18 +48,18 @@ if [[ -n "$INVOKER" && "$INVOKER" != "root" ]]; then
     USER_XAUTHORITY="${HOME_DIR}/.Xauthority"
   fi
   sleep 1
+  # Wichtig: nicht im cwd von pkexec (/root) starten – sonst scheitert OCR
+  # mit PermissionError: [Errno 13] Permission denied: 'None'.
   if command -v runuser >/dev/null 2>&1; then
-    runuser -u "$INVOKER" -- env \
-      DISPLAY="$USER_DISPLAY" \
-      XAUTHORITY="${USER_XAUTHORITY:-}" \
-      ELECTRON_DISABLE_SANDBOX=1 \
-      /usr/bin/ghostwriter >/tmp/ghostwriter-relaunch.log 2>&1 &
+    runuser -u "$INVOKER" -- bash -lc \
+      "cd \"$HOME_DIR\" && env HOME=\"$HOME_DIR\" DISPLAY=\"$USER_DISPLAY\" \
+      XAUTHORITY=\"${USER_XAUTHORITY:-}\" ELECTRON_DISABLE_SANDBOX=1 \
+      /usr/bin/ghostwriter >/tmp/ghostwriter-relaunch.log 2>&1 &"
   else
-    sudo -u "$INVOKER" -H env \
-      DISPLAY="$USER_DISPLAY" \
-      XAUTHORITY="${USER_XAUTHORITY:-}" \
-      ELECTRON_DISABLE_SANDBOX=1 \
-      /usr/bin/ghostwriter >/tmp/ghostwriter-relaunch.log 2>&1 &
+    sudo -u "$INVOKER" -H bash -lc \
+      "cd \"$HOME_DIR\" && env HOME=\"$HOME_DIR\" DISPLAY=\"$USER_DISPLAY\" \
+      XAUTHORITY=\"${USER_XAUTHORITY:-}\" ELECTRON_DISABLE_SANDBOX=1 \
+      /usr/bin/ghostwriter >/tmp/ghostwriter-relaunch.log 2>&1 &"
   fi
   echo "GhostWriter neu gestartet für $INVOKER"
 fi
