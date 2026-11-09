@@ -715,6 +715,11 @@ def _public_job_error(exc: BaseException) -> str:
                 "PaddleOCR fehlt in der GhostWriter-Installation. "
                 "Scans brauchen den OCR-Stack im App-venv unter /opt/ghostwriter."
             )
+    if isinstance(exc, MemoryError) or "MemoryError" in type(exc).__name__:
+        return (
+            "Zu wenig Speicher für die Texterkennung (oft GPU durch Ollama belegt). "
+            "Analyse erneut starten; große Scans werden seitenweise verarbeitet."
+        )
     msg = str(exc).strip()
     if not msg:
         return type(exc).__name__

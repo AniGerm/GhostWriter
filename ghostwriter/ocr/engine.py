@@ -33,14 +33,15 @@ def get_pipeline() -> Any:
 
     device = _device()
     logger.info("OCR-Gerät: %s", device)
+    # Ohne Doc-Unwarping: spart viel VRAM, solange Ollama die GPU belegt.
     _pipeline = PaddleOCR(
         device=device,
         lang="german",
         ocr_version="PP-OCRv5",
         use_doc_orientation_classify=False,
-        use_doc_unwarping=True,
+        use_doc_unwarping=False,
         use_textline_orientation=False,
-        text_det_limit_side_len=2400,
+        text_det_limit_side_len=1600,
         text_recognition_model_name="latin_PP-OCRv5_mobile_rec",
         text_rec_score_thresh=0.45,
     )

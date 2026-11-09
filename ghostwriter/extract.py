@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,10 +24,28 @@ class ExtractionResult:
 
 
 def run_ocr(path: Path, work_dir: Path) -> ExtractionResult:
-    """OCR-Einstieg (Subprozess). Wird in Unit-Tests per Monkeypatch ersetzt."""
-    from ghostwriter.ocr.worker import ocr_file
-
-    return ocr_file(path, work_dir)
+    """OCR im eigenen Prozess, damit GPU-Speicher danach wirklich frei wird."""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.run(
+        [sys.executable, "-m", "ghostwriter.ocr.worker", str(path), str(work_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        if "MemoryError" in detail or "Out of memory" in detail:
+            raise MemoryError(
+                "Nicht genug Speicher für die Texterkennung. "
+                "Bitte große Dateien seitenweise prüfen oder Ollama kurz entlasten."
+            ) from None
+        raise RuntimeError(detail or f"OCR-Prozess endete mit Code {proc.returncode}")
+    payload = json.loads(proc.stdout)
+    return ExtractionResult(
+        text=str(payload.get("text", "")),
+        page_count=int(payload.get("page_count", 0)),
+        used_ocr=bool(payload.get("used_ocr", True)),
+    )
 
 
 def _text_layer(path: Path) -> tuple[str, int]:

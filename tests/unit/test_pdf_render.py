@@ -28,6 +28,22 @@ def test_render_pdf(tmp_path: Path) -> None:
     assert len(outs) == 1
 
 
+def test_render_caps_long_side_for_huge_pages(tmp_path: Path) -> None:
+    from ghostwriter.ocr.pdf_render import OCR_MAX_SIDE, render_one_page
+    from pypdf import PdfWriter
+
+    pdf = tmp_path / "huge.pdf"
+    writer = PdfWriter()
+    # ~3x A4 in points - ohne Cap wuerde 200 dpi >5000 px ergeben
+    writer.add_blank_page(width=1860, height=2631)
+    with pdf.open("wb") as fh:
+        writer.write(fh)
+    out = render_one_page(pdf, tmp_path / "page.png", 1, dpi=200)
+    assert out is not None
+    image = Image.open(out)
+    assert max(image.size) <= OCR_MAX_SIDE
+
+
 def test_unsupported(tmp_path: Path) -> None:
     bad = tmp_path / "x.txt"
     bad.write_text("x")
