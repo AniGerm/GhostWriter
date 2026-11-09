@@ -10,7 +10,7 @@ from ghostwriter.llm.client import OllamaClient
 
 
 def test_rejects_public_remote_host() -> None:
-    with pytest.raises(ValueError, match="privat|lokal|LAN"):
+    with pytest.raises(ValueError, match=r"privat|lokal|LAN"):
         OllamaClient(base_url="http://evil.example:11434")
 
 
@@ -35,6 +35,12 @@ def test_chat_json_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
         def post(self, url: str, json: dict[str, object]) -> FakeResponse:
             assert "127.0.0.1" in url
             assert json["format"] == "json"
+            opts = json["options"]
+            assert isinstance(opts, dict)
+            assert opts["num_ctx"] == 16384
+            assert opts["temperature"] <= 0.4
+            assert opts["repeat_penalty"] >= 1.05
+            assert opts["num_predict"] >= 4096
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "Client", FakeClient)
