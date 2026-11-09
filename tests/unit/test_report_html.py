@@ -79,8 +79,7 @@ def test_reply_intro_replaces_previous_block() -> None:
 
 def test_reply_intro_replaces_legacy_title() -> None:
     old = (
-        '<h3 class="gw-reply-title">Stellungnahme</h3>'
-        '<p class="gw-reply-lead">Alt.</p><p>Text</p>'
+        '<h3 class="gw-reply-title">Stellungnahme</h3><p class="gw-reply-lead">Alt.</p><p>Text</p>'
     )
     html = ensure_reply_intro(old, "B", "", place="Köln", issued_on=date(2026, 11, 5))
     assert html.count("gw-reply-title") == 1
@@ -135,6 +134,16 @@ def test_restore_ascii_umlauts_keeps_aktuell() -> None:
     assert "aktuelle" in out
     assert "aktüller" not in out
     assert "aktülle" not in out
+
+
+def test_restore_ascii_umlauts_fixes_llm_aktuell() -> None:
+    """Modelle setzen fälschlich ü in aktuell; zurück auf ue."""
+    html = "<p>Der aktülle Befund und die aktüllen Werte. Aktüll keine Einschränkung.</p>"
+    out = restore_ascii_umlauts(html)
+    assert "aktuelle" in out
+    assert "aktuellen" in out
+    assert "Aktuell" in out
+    assert "aktüll" not in out.lower()
 
 
 def test_rewrite_frage_heading_keeps_title() -> None:

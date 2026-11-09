@@ -100,13 +100,7 @@ def test_compose_report_does_not_duplicate_signature() -> None:
     class ComposeFake(FakeOllama):
         def chat_json(self, **kwargs: Any) -> dict[str, Any]:
             self.calls.append(kwargs)
-            return {
-                "html": (
-                    "<p>Antworttext</p>"
-                    "<p>Mit freundlichen Grüßen</p>"
-                    "<p>Dr. Alt</p>"
-                )
-            }
+            return {"html": ("<p>Antworttext</p><p>Mit freundlichen Grüßen</p><p>Dr. Alt</p>")}
 
     fake = ComposeFake()
     pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
@@ -160,11 +154,7 @@ def test_compose_report_strips_signature_from_current_draft() -> None:
         questions=[Question(1, "Diabetes?", "Diabetes")],
         finding_summaries=["Diabetes Typ 2"],
         notes="",
-        current_html=(
-            "<p>Alter Text</p>"
-            "<p>Mit freundlichen Grüßen</p>"
-            "<p>Dr. Alt</p>"
-        ),
+        current_html=("<p>Alter Text</p><p>Mit freundlichen Grüßen</p><p>Dr. Alt</p>"),
         revision_notes="kürzer",
         letterhead_html="<p>Praxis Kopf</p>",
         signature_html="<p>Mit freundlichen Grüßen</p><p>Dr. Neu</p>",
@@ -253,3 +243,46 @@ def test_compose_question_block_has_no_square_brackets() -> None:
     )
     payload = fake.calls[0]["user"]
     assert "[" not in payload.split("Befundzusammenfassungen:")[0]
+
+
+def test_compose_asks_for_prose_paragraphs_not_bullets() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>x</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    pipe.compose_report(
+        questions=[Question(1, "Besteht Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes"],
+        notes="",
+    )
+    system = fake.calls[0]["system"]
+    user = fake.calls[0]["user"]
+    assert "<p>" in system
+    assert "ausformulierte" in system.lower() or "ausformuliert" in system.lower()
+    assert "Stichpunkte" not in system
+    assert "nur Stichpunkte" not in user
+    assert (
+        "<ul>" not in system
+        or "keine aufzählung" in system.lower()
+        or "kein <ul>" in system.lower()
+    )
+
+
+def test_compose_report_fixes_aktuell_false_umlaut() -> None:
+    class ComposeFake(FakeOllama):
+        def chat_json(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(kwargs)
+            return {"html": "<p>Der aktülle HbA1c liegt bei 7 %.</p>"}
+
+    fake = ComposeFake()
+    pipe = ReportPipeline(client=fake)  # type: ignore[arg-type]
+    html = pipe.compose_report(
+        questions=[Question(1, "Diabetes?", "Diabetes")],
+        finding_summaries=["Diabetes"],
+        notes="",
+    )
+    assert "aktuelle" in html
+    assert "aktüll" not in html.lower()

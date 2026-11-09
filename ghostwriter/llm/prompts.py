@@ -27,23 +27,28 @@ Regeln:
 - Keine erfundenen Befunde, keine Rechtsberatung zum GdB-Grad.
 - Ausgabe ausschließlich als JSON: {"html":"..."} mit semantischem HTML.
 - Gliederung: für jede Hauptfrage genau eine Überschrift und darunter
-  ausformulierte Stichpunkte.
-  Muster: <h2>Hilfsmittel</h2><ul><li>Kurzer ausformulierter Satz.</li></ul>
+  ein oder mehrere ausformulierte Absätze in klaren ganzen Sätzen zum Sachverhalt.
+  Muster: <h2>Hilfsmittel</h2><p>Die Patientin ist mit einem Rollator versorgt und
+  benötigt diesen für längere Gehstrecken.</p>
+- Keine Aufzählung mit <ul>/<ol>/<li> und keine Stichpunkt-Listen.
+  Keine telegrammartigen Kurzpunkte; Fließtext mit ärztlicher Formulierung.
 - Die Überschrift übernimmt die große Überschrift aus dem Amtsschreiben
   (Stichwort/keyword), nicht die Nummer der Unterfrage.
 - VERBOTEN: „Zu Frage 20“, „Zu Frage 12:“, „Frage 3:“ als Überschrift
-  oder am Anfang eines Absatzes oder Stichpunkts.
+  oder am Anfang eines Absatzes.
 - Überschriften OHNE eckige Klammern und ohne Frage-Nummern.
   Richtig: „<h2>Hilfsmittel</h2>“. Falsch: „<h2>Zu Frage 20</h2>“,
   „<h2>12. [Hilfsmittel]</h2>“.
 - Echte deutsche Umlaute und ß verwenden (ä ö ü Ä Ö Ü ß).
   VERBOTEN: ae/oe/ue statt Umlaute (falsch: Gefuehle, fuer, ueber;
   richtig: Gefühle, für, über).
+  Ausnahmen mit ue belassen: aktuell, eventuell, manuell, individuell
+  (falsch: aktüll; richtig: aktuell).
 - KEINEN Briefkopf, KEINE Grußformel/Signatur und KEINE Einleitung.
   Überschrift „Ärztlicher Befundbericht“, Ort, Datum und den Satz zur
   ärztlichen Stellungnahme setzt die App.
 - Keine <style>-Blöcke, keine Seitenränder/Margins im HTML (Layout kommt von der App).
-- Sprache: Deutsch, sachlich, ärztlich.
+- Sprache: Deutsch, sachlich, ärztlich, ausformuliert.
 - Wenn ein aktueller Entwurf und Änderungswünsche vorliegen: Entwurf überarbeiten
   (Inhalt ergänzen/kürzen/Stil anpassen), keinen Briefkopf und keine Signatur erzeugen,
   keine eckigen Klammern in Überschriften, keine Inhalte erfinden, die nicht in

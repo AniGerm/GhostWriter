@@ -96,7 +96,8 @@ class ReportPipeline:
         f_block = "\n---\n".join(finding_summaries) if finding_summaries else "(keine)"
         parts = [
             f"Briefkopf-HTML (optional übernehmen):\n{letterhead_html}",
-            "Hauptfragen (Überschrift = Stichwort, darunter nur Stichpunkte, "
+            "Hauptfragen (Überschrift = Stichwort, darunter ausformulierte "
+            "Absätze in ganzen Sätzen, keine Stichpunkt-Listen, "
             "niemals „Zu Frage N“):\n"
             f"{q_block}",
             f"Befundzusammenfassungen:\n{f_block}",

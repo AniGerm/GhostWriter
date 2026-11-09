@@ -167,10 +167,8 @@ def reply_intro_html(
         '<h3 class="gw-reply-title" style="font-size:14pt;font-weight:700;'
         'text-decoration:underline">Ärztlicher Befundbericht</h3>'
     )
-    placed = (
-        '<p class="gw-reply-place" style="text-align:right">' + "<br>".join(lines) + "</p>"
-    )
-    return f"{title}{placed}<p class=\"gw-reply-lead\">{lead}</p>"
+    placed = '<p class="gw-reply-place" style="text-align:right">' + "<br>".join(lines) + "</p>"
+    return f'{title}{placed}<p class="gw-reply-lead">{lead}</p>'
 
 
 def strip_reply_intro(html: str) -> str:
@@ -228,6 +226,18 @@ def _keep_ascii_ue(word: str) -> bool:
     return low.startswith(("quer", "quelle", "bequem"))
 
 
+_AKTULL_RE = re.compile(r"Aktüll|aktüll")
+
+
+def _fix_false_ue_umlaut(text: str) -> str:
+    """Korrigiert LLM-Fehler aktüll→aktuell (ü statt ue)."""
+
+    def _repl(match: re.Match[str]) -> str:
+        return "Aktuell" if match.group(0)[0].isupper() else "aktuell"
+
+    return _AKTULL_RE.sub(_repl, text)
+
+
 def _restore_umlauts_in_text(text: str) -> str:
     if not text:
         return text
@@ -246,7 +256,8 @@ def _restore_umlauts_in_text(text: str) -> str:
         fixed = _ae_RE.sub("ä", fixed)
         return fixed
 
-    return re.sub(r"[A-Za-zÄÖÜäöüß]+", protect, text)
+    restored = re.sub(r"[A-Za-zÄÖÜäöüß]+", protect, text)
+    return _fix_false_ue_umlaut(restored)
 
 
 def restore_ascii_umlauts(html: str) -> str:
